@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   }
 
   console.log(`Fetching NFTs for address ${address}`)
-  console.log(`Using OpenSea API key: ${OPENSEA_API_KEY.substring(0, 4)}...`)
+  console.log(`Using OpenSea API key: [CONFIGURED]`)
 
   try {
     // Using the most current OpenSea API v2 endpoint format
