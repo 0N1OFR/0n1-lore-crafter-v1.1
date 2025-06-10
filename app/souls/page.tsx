@@ -24,38 +24,72 @@ import { SoulEditor } from "@/components/soul-editor"
 import { Input } from "@/components/ui/input"
 import { getCharacterMemories } from "@/lib/memory"
 import { generatePreviewText, getPreviewTextColor } from "@/lib/preview-text-generator"
+import { useWallet } from "@/components/wallet/wallet-provider"
 
 export default function SoulsPage() {
   const router = useRouter()
+  const { address, isConnected } = useWallet()
   const [souls, setSouls] = useState<StoredSoul[]>([])
+  const [ownedNfts, setOwnedNfts] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [editingSoul, setEditingSoul] = useState<StoredSoul | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [deployedSouls, setDeployedSouls] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    const loadSouls = () => {
-      const storedSouls = getStoredSouls()
-      setSouls(storedSouls)
+    const loadSoulsAndNfts = async () => {
+      // Redirect if wallet not connected
+      if (!isConnected || !address) {
+        router.push("/?connect=true")
+        return
+      }
 
-      // Check which souls have been deployed (have existing conversations)
-      const deployed = new Set<string>()
-      storedSouls.forEach((soul) => {
-        const memories = getCharacterMemories(soul.data.pfpId)
-        if (memories && memories.messages.length > 0) {
-          deployed.add(soul.data.pfpId)
+      try {
+        // First, fetch owned NFTs from OpenSea
+        const response = await fetch(`/api/opensea/owned?address=${address}`)
+        if (!response.ok) {
+          throw new Error('Failed to fetch owned NFTs')
         }
-      })
-      setDeployedSouls(deployed)
+        
+        const ownedNftData = await response.json()
+        setOwnedNfts(ownedNftData.nfts || [])
+
+        // Get all stored souls
+        const allStoredSouls = getStoredSouls()
+        
+        // Filter souls to only show ones for NFTs the user actually owns
+        const ownedTokenIds = new Set(ownedNftData.nfts?.map((nft: any) => nft.identifier) || [])
+        const filteredSouls = allStoredSouls.filter(soul => 
+          ownedTokenIds.has(soul.data.pfpId)
+        )
+        
+        setSouls(filteredSouls)
+
+        // Check which souls have been deployed (have existing conversations)
+        const deployed = new Set<string>()
+        filteredSouls.forEach((soul) => {
+          const memories = getCharacterMemories(soul.data.pfpId)
+          if (memories && memories.messages.length > 0) {
+            deployed.add(soul.data.pfpId)
+          }
+        })
+        setDeployedSouls(deployed)
+
+      } catch (error) {
+        console.error('Error loading souls and NFTs:', error)
+        // On error, still try to load souls but with empty owned NFTs
+        setSouls([])
+        setOwnedNfts([])
+      }
 
       setIsLoading(false)
     }
 
-    loadSouls()
+    loadSoulsAndNfts()
     // Add event listener for storage changes
-    window.addEventListener("storage", loadSouls)
-    return () => window.removeEventListener("storage", loadSouls)
-  }, [])
+    window.addEventListener("storage", loadSoulsAndNfts)
+    return () => window.removeEventListener("storage", loadSoulsAndNfts)
+  }, [isConnected, address, router])
 
   const handleDelete = (id: string) => {
     deleteSoul(id)
@@ -102,7 +136,13 @@ export default function SoulsPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+        <Card className="border border-purple-500/30 bg-black/60 backdrop-blur-sm">
+          <CardContent className="flex flex-col items-center justify-center py-20">
+            <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-lg text-purple-300 mb-2">Loading Your Soul Collection</p>
+            <p className="text-muted-foreground text-sm">Verifying wallet and fetching your 0N1 Force NFTs...</p>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -151,14 +191,41 @@ export default function SoulsPage() {
       <div className="max-w-7xl mx-auto p-4">
         {souls.length === 0 ? (
           <Card className="border border-purple-500/30 bg-black/60 backdrop-blur-sm">
-            <CardContent className="flex flex-col items-center justify-center py-20">
-              <p className="text-xl text-purple-300 mb-6">No souls created yet</p>
-              <Button
-                onClick={() => router.push("/")}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-              >
-                Create Your First Soul
-              </Button>
+            <CardContent className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-16 h-16 mb-6 rounded-full bg-purple-900/20 border border-purple-500/30 flex items-center justify-center">
+                <User className="h-8 w-8 text-purple-400" />
+              </div>
+              <p className="text-xl text-purple-300 mb-4">No souls created yet</p>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                {ownedNfts.length > 0 
+                  ? `You own ${ownedNfts.length} 0N1 Force NFT${ownedNfts.length > 1 ? 's' : ''}. Create a soul for any of them to get started.`
+                  : "You don't own any 0N1 Force NFTs yet. You need to own an NFT to create souls."
+                }
+              </p>
+              {ownedNfts.length > 0 ? (
+                <Button
+                  onClick={() => router.push("/")}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                >
+                  Create Your First Soul
+                </Button>
+              ) : (
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => window.open("https://opensea.io/collection/0n1-force", "_blank")}
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                  >
+                    Get 0N1 Force NFT
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push("/?connect=true")}
+                    className="border-purple-500/30 text-purple-300 hover:bg-purple-900/20"
+                  >
+                    Connect Different Wallet
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (

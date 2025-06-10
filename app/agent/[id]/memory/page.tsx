@@ -23,6 +23,7 @@ import { getSoulByNftId, type StoredSoul } from "@/lib/storage"
 import { getCharacterMemories, saveCharacterMemories, createCharacterMemory } from "@/lib/memory"
 import { upgradeToEnhancedMemory } from "@/lib/memory-enhanced"
 import { useWallet } from "@/components/wallet/wallet-provider"
+import { verifyNftOwnership, createOwnershipError } from "@/lib/ownership"
 import { 
   getMemoryProfile, 
   saveMemoryProfile, 
@@ -57,6 +58,7 @@ export default function MemoryPage() {
   const [showChat, setShowChat] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [ownershipVerified, setOwnershipVerified] = useState<boolean | null>(null)
 
   useEffect(() => {
     async function loadMemoryData() {
@@ -81,11 +83,25 @@ export default function MemoryPage() {
 
         setSoul(foundSoul)
 
-        // TODO: Add wallet validation here
-        // For now, we'll allow access but add validation later
-        if (!isConnected) {
-          // Redirect to login/wallet connection
+        // Wallet connection and ownership verification
+        if (!isConnected || !address) {
           router.push("/?connect=true")
+          return
+        }
+
+        // Verify NFT ownership
+        try {
+          const owns = await verifyNftOwnership(address, nftId)
+          setOwnershipVerified(owns)
+          
+          if (!owns) {
+            setError(createOwnershipError(nftId))
+            return
+          }
+        } catch (error) {
+          console.error("Ownership verification failed:", error)
+          setOwnershipVerified(false)
+          setError("Unable to verify NFT ownership. Please try again.")
           return
         }
 
@@ -192,6 +208,40 @@ export default function MemoryPage() {
           <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-purple-300">Loading character memory...</p>
         </div>
+      </div>
+    )
+  }
+
+  // Ownership verification check
+  if (ownershipVerified === false) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="border border-red-500/30 bg-black/60 backdrop-blur-sm">
+          <CardContent className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 mb-6 rounded-full bg-red-900/20 border border-red-500/30 flex items-center justify-center">
+              <span className="text-red-400 text-2xl">🔒</span>
+            </div>
+            <p className="text-xl text-red-300 mb-4">Access Denied</p>
+            <p className="text-muted-foreground mb-6 max-w-md">
+              You don't own 0N1 Force #{params.id}. You can only access characters you own.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => router.push("/souls")}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              >
+                Back to Your Souls
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push("/?connect=true")}
+                className="border-purple-500/30 text-purple-300 hover:bg-purple-900/20"
+              >
+                Connect Different Wallet
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }

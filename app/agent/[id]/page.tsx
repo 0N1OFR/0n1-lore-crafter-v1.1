@@ -69,6 +69,10 @@ import { ChatArchiveBrowser } from "@/components/chat-archive-browser"
 // Chat Archive System
 import { archiveChat, getArchivedChats, type ArchivedChat } from "@/lib/chat-archive"
 
+// Wallet and ownership verification
+import { useWallet } from "@/components/wallet/wallet-provider"
+import { verifyNftOwnership, createOwnershipError } from "@/lib/ownership"
+
 // Enhanced message interface to support memory features
 interface Message {
   id: string
@@ -92,6 +96,7 @@ interface SavedMemorySegment {
 export default function AgentPage() {
   const params = useParams()
   const router = useRouter()
+  const { address, isConnected } = useWallet()
   const [soul, setSoul] = useState<StoredSoul | null>(null)
   const [agentConfig, setAgentConfig] = useState<AgentConfig | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -127,6 +132,9 @@ export default function AgentPage() {
     messageId?: string
     isFullMessage?: boolean
   } | null>(null)
+
+  // Ownership verification state
+  const [ownershipVerified, setOwnershipVerified] = useState<boolean | null>(null)
 
   // Load saved memory segments on mount
   useEffect(() => {
@@ -602,12 +610,46 @@ export default function AgentPage() {
     setIsInitializing(false)
   }, [params.id]) // Removed model, temperature, maxTokens dependencies since they're handled separately now
 
+  // Ownership verification effect
+  useEffect(() => {
+    const verifyOwnership = async () => {
+      const nftId = params.id as string
+      
+      // First check if wallet is connected
+      if (!isConnected || !address) {
+        // Redirect to homepage with connection prompt
+        router.push("/?connect=true")
+        return
+      }
+
+      // Check NFT ownership
+      try {
+        const owns = await verifyNftOwnership(address, nftId)
+        setOwnershipVerified(owns)
+        
+        if (!owns) {
+          // User doesn't own this NFT
+          setError(createOwnershipError(nftId))
+        }
+      } catch (error) {
+        console.error("Ownership verification failed:", error)
+        setOwnershipVerified(false)
+        setError("Unable to verify NFT ownership. Please try again.")
+      }
+    }
+
+    // Only verify if we have the necessary data
+    if (params.id && (isConnected !== null)) {
+      verifyOwnership()
+    }
+  }, [params.id, isConnected, address, router])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
   const sendMessage = async () => {
-    if (!input.trim() || !agentConfig || isLoading || !memory) return
+    if (!input.trim() || !agentConfig || isLoading || !memory || ownershipVerified !== true) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -730,6 +772,55 @@ export default function AgentPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
+  }
+
+  // Ownership verification check
+  if (ownershipVerified === false) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="border border-red-500/30 bg-black/60 backdrop-blur-sm">
+          <CardContent className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 mb-6 rounded-full bg-red-900/20 border border-red-500/30 flex items-center justify-center">
+              <span className="text-red-400 text-2xl">🔒</span>
+            </div>
+            <p className="text-xl text-red-300 mb-4">Access Denied</p>
+            <p className="text-muted-foreground mb-6 max-w-md">
+              You don't own 0N1 Force #{params.id}. You can only access characters you own.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => router.push("/souls")}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              >
+                Back to Your Souls
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push("/?connect=true")}
+                className="border-purple-500/30 text-purple-300 hover:bg-purple-900/20"
+              >
+                Connect Different Wallet
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Still verifying ownership
+  if (ownershipVerified === null) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="border border-purple-500/30 bg-black/60 backdrop-blur-sm">
+          <CardContent className="flex flex-col items-center justify-center py-20">
+            <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-lg text-purple-300 mb-2">Verifying NFT Ownership</p>
+            <p className="text-muted-foreground text-sm">Checking if you own 0N1 Force #{params.id}...</p>
+          </CardContent>
+        </Card>
       </div>
     )
   }
