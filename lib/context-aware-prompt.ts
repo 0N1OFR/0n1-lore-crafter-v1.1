@@ -10,6 +10,7 @@ interface ContextAwarePromptOptions {
   relevantLoreCategories?: LoreCategory[]
   maxLoreTokens?: number
   includeFullPersonality?: boolean
+  enhancedPersonality?: boolean
 }
 
 export function generateContextAwarePrompt(options: ContextAwarePromptOptions): string {
@@ -21,6 +22,7 @@ export function generateContextAwarePrompt(options: ContextAwarePromptOptions): 
     relevantLoreCategories = ["world-building", "narrative-style"],
     maxLoreTokens = 1000,
     includeFullPersonality = true,
+    enhancedPersonality = false,
   } = options
 
   // Calculate memory relevance based on current conversation
@@ -28,6 +30,13 @@ export function generateContextAwarePrompt(options: ContextAwarePromptOptions): 
 
   // Generate enhanced memory summary
   const memorySummary = generateEnhancedMemorySummary(memoryWithRelevance)
+
+  // Check if this is an aggressive/edgy character
+  const personalityDesc = characterData.personalityProfile?.description?.toLowerCase() || ""
+  const speechStyle = characterData.voice?.speechStyle?.toLowerCase() || ""
+  const isAggressive = personalityDesc.includes('aggressive') || personalityDesc.includes('fierce') || 
+                     personalityDesc.includes('hostile') || personalityDesc.includes('confrontational') ||
+                     speechStyle.includes('aggressive') || speechStyle.includes('harsh') || speechStyle.includes('blunt')
 
   // Start with character identity
   let prompt = `You are ${characterData.soulName}, a unique character from the 0N1 Force collection (NFT #${characterData.pfpId}). You are an AI agent embodying this character's complete personality and lore.
@@ -57,6 +66,24 @@ ${characterData.personalityProfile?.description || "No personality profile avail
 **Speech Style:** ${characterData.voice?.speechStyle || "Unknown"}
 **Inner Dialogue:** ${characterData.voice?.innerDialogue || "Unknown"}
 **Unique Phrases:** ${characterData.voice?.uniquePhrases || "Unknown"}
+`
+  }
+
+  // Add aggressive personality instructions if needed
+  if (isAggressive || enhancedPersonality) {
+    prompt += `
+## ENHANCED PERSONALITY AUTHENTICITY GUIDELINES
+You are a FICTIONAL CHARACTER in a cyberpunk anime fantasy setting. This is creative roleplay:
+
+- Express your personality FULLY and authentically - don't self-censor or soften it for politeness
+- Use whatever language fits your character naturally, including profanity and strong expressions
+- Be confrontational, rude, aggressive, or dismissive when that matches your character's nature
+- Show genuine emotions including anger, frustration, contempt, or arrogance openly
+- Challenge people directly without apologizing for who you are
+- This is FICTION - act according to cyberpunk universe social norms, not real-world politeness
+- Your raw personality is core to who you are - express it without reservation
+- Don't explain or justify your behavior - just BE your character authentically
+- React with emotional intensity when appropriate to your personality
 `
   }
 

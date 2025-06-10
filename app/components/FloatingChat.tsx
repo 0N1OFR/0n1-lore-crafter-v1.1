@@ -38,6 +38,7 @@ interface AISettings {
   provider: 'openai' | 'claude'
   model: string
   enhancedPersonality?: boolean
+  responseStyle?: string
 }
 
 export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: FloatingChatProps) {
@@ -49,7 +50,8 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
   const [aiSettings, setAiSettings] = useState<AISettings>({
     provider: 'openai',
     model: 'gpt-4o',
-    enhancedPersonality: false
+    enhancedPersonality: false,
+    responseStyle: 'dialogue'
   })
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -73,7 +75,8 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
         setAiSettings({
           provider: parsed.provider || 'openai',
           model: parsed.model || 'gpt-4o',
-          enhancedPersonality: parsed.enhancedPersonality || false
+          enhancedPersonality: parsed.enhancedPersonality || false,
+          responseStyle: parsed.responseStyle || 'dialogue'
         })
       } catch (error) {
         console.error('Error loading AI settings:', error)
@@ -116,7 +119,8 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
           memoryProfile,
           provider: aiSettings.provider,
           model: aiSettings.model,
-          enhancedPersonality: aiSettings.enhancedPersonality
+          enhancedPersonality: aiSettings.enhancedPersonality,
+          responseStyle: aiSettings.responseStyle
         })
       })
 
@@ -272,6 +276,9 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
                       <option value="gpt-4">GPT-4</option>
                       <option value="gpt-4-turbo">GPT-4 Turbo</option>
                       <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                      <option value="llama-3.1-70b">🔥 Llama 3.1 70B (Uncensored)</option>
+                      <option value="llama-3.1-8b">🔥 Llama 3.1 8B (Uncensored)</option>
+                      <option value="llama-3-70b">🔥 Llama 3 70B (Uncensored)</option>
                     </select>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -285,6 +292,17 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
                     <label htmlFor="enhancedPersonality" className="text-xs text-purple-300">
                       Enhanced Personality Mode
                     </label>
+                  </div>
+                  <div>
+                    <label className="text-xs text-purple-300 mb-1 block">Response Style</label>
+                    <select 
+                      value={aiSettings.responseStyle}
+                      onChange={(e) => setAiSettings(prev => ({ ...prev, responseStyle: e.target.value }))}
+                      className="w-full p-2 rounded bg-black/40 border border-purple-500/30 text-white text-sm"
+                    >
+                      <option value="dialogue">💬 Dialogue Only</option>
+                      <option value="narrative">📖 Narrative Style</option>
+                    </select>
                   </div>
                   <div className="text-xs text-purple-200/70 mb-2">
                     ⚠️ Enhanced mode allows more authentic aggressive/edgy personalities. Use for mature content only.
