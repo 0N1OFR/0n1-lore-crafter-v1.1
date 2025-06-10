@@ -3,7 +3,7 @@ import OpenAI from "openai"
 
 // Simple in-memory rate limiting (for production, use Redis)
 const requestCounts = new Map<string, { count: number; resetTime: number }>()
-const REQUESTS_PER_MINUTE = 10 // Limit to 10 requests per minute per IP
+const REQUESTS_PER_MINUTE = 30 // Increased to 30 requests per minute per IP
 const RESET_INTERVAL = 60 * 1000 // 1 minute
 
 function isRateLimited(identifier: string): boolean {
@@ -22,6 +22,11 @@ function isRateLimited(identifier: string): boolean {
   
   userRequests.count++
   return false
+}
+
+// Sleep function for retry delays
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 // Create an OpenAI API client with fallback
@@ -48,6 +53,57 @@ function getActualModelName(model: string): string {
     'llama-3-70b': 'meta-llama/Llama-3-70b-chat-hf',
   }
   return modelMap[model] || model
+}
+
+// Retry function with exponential backoff for rate limits
+async function makeAPICallWithRetry(client: OpenAI, params: any, maxRetries = 3): Promise<any> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await client.chat.completions.create(params)
+    } catch (error: any) {
+      console.log(`API attempt ${attempt + 1} failed:`, error.message)
+      
+      // Handle specific OpenAI errors
+      if (error.status === 429) {
+        if (attempt === maxRetries) {
+          throw new Error(`Rate limit exceeded after ${maxRetries + 1} attempts. Try using a Llama model instead, or wait a few minutes.`)
+        }
+        
+        // Exponential backoff: 2s, 4s, 8s
+        const delay = Math.pow(2, attempt + 1) * 1000
+        console.log(`Rate limited, retrying in ${delay}ms...`)
+        await sleep(delay)
+        continue
+      }
+      
+      if (error.status === 400) {
+        throw new Error(`Invalid request: ${error.message}`)
+      }
+      
+      if (error.status === 401) {
+        throw new Error(`Authentication failed: Check your API key`)
+      }
+      
+      if (error.status === 403) {
+        throw new Error(`Forbidden: Your API key may not have access to this model`)
+      }
+      
+      if (error.status >= 500) {
+        if (attempt === maxRetries) {
+          throw new Error(`Server error after ${maxRetries + 1} attempts: ${error.message}`)
+        }
+        
+        // Retry server errors with backoff
+        const delay = Math.pow(2, attempt) * 1000
+        console.log(`Server error, retrying in ${delay}ms...`)
+        await sleep(delay)
+        continue
+      }
+      
+      // For other errors, don't retry
+      throw error
+    }
+  }
 }
 
 // Update the POST function to handle enhanced context
@@ -174,13 +230,26 @@ Create a rich, immersive scene with detailed descriptions:
       }
     }
 
-    const response = await client.chat.completions.create(completionParams)
+    // Make API call with retry logic
+    const response = await makeAPICallWithRetry(client, completionParams)
 
     return NextResponse.json({ message: response.choices[0].message.content })
   } catch (error: any) {
     console.error("AI Agent API Error:", error)
+    
+    // Provide helpful error messages based on error type
+    let errorMessage = error.message || "Unknown error"
+    
+    if (error.message?.includes('Rate limit exceeded')) {
+      errorMessage = "OpenAI rate limit exceeded. Try using a Llama model (they have higher limits) or wait a few minutes."
+    } else if (error.message?.includes('insufficient_quota')) {
+      errorMessage = "OpenAI quota exceeded. Try using a Llama model (they're free) or check your OpenAI billing."
+    } else if (error.message?.includes('Authentication failed')) {
+      errorMessage = "API key authentication failed. Please check your configuration."
+    }
+    
     return NextResponse.json(
-      { error: `Failed to generate response: ${error.message || "Unknown error"}` },
+      { error: errorMessage },
       { status: 500 },
     )
   }
