@@ -1,9 +1,27 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { checkOwnershipRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY
 const ON1_CONTRACT_ADDRESS = "0x3bf2922f4520a8ba0c2efc3d2a1539678dad5e9d"
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  // Check rate limit first
+  const rateLimitResult = checkOwnershipRateLimit(request)
+  if (!rateLimitResult.allowed) {
+    return NextResponse.json(
+      createRateLimitResponse(rateLimitResult.remaining, rateLimitResult.resetTime, "ownership verification"),
+      { 
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': '30',
+          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+          'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+          'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
+        }
+      }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const address = searchParams.get("address")
   const tokenId = searchParams.get("tokenId")

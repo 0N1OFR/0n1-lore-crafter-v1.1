@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import type { CharacterData } from "@/lib/types"
 import type { CharacterMemoryProfile } from "@/lib/memory-types"
+import { checkChatRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -9,6 +10,23 @@ const openai = process.env.OPENAI_API_KEY ? new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
+    // Check rate limit first (shared across all chat endpoints)
+    const rateLimitResult = checkChatRateLimit(request)
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        createRateLimitResponse(rateLimitResult.remaining, rateLimitResult.resetTime, "summary generation"),
+        { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '20',
+            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+            'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
+          }
+        }
+      )
+    }
+
     if (!openai) {
       return NextResponse.json({ error: "OpenAI API key is not configured" }, { status: 500 })
     }

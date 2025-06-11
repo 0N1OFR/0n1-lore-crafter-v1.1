@@ -1,28 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
-
-// Simple in-memory rate limiting (for production, use Redis)
-const requestCounts = new Map<string, { count: number; resetTime: number }>()
-const REQUESTS_PER_MINUTE = 30 // Increased to 30 requests per minute per IP
-const RESET_INTERVAL = 60 * 1000 // 1 minute
-
-function isRateLimited(identifier: string): boolean {
-  const now = Date.now()
-  const userRequests = requestCounts.get(identifier)
-  
-  if (!userRequests || now > userRequests.resetTime) {
-    // Reset or initialize counter
-    requestCounts.set(identifier, { count: 1, resetTime: now + RESET_INTERVAL })
-    return false
-  }
-  
-  if (userRequests.count >= REQUESTS_PER_MINUTE) {
-    return true
-  }
-  
-  userRequests.count++
-  return false
-}
+import { checkChatRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 
 // Sleep function for retry delays
 function sleep(ms: number): Promise<void> {
@@ -110,14 +88,20 @@ async function makeAPICallWithRetry(client: OpenAI, params: any, maxRetries = 3)
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting check
-    const forwardedFor = request.headers.get('x-forwarded-for')
-    const ip = forwardedFor ? forwardedFor.split(',')[0] : request.headers.get('x-real-ip') || 'unknown'
-    
-    if (isRateLimited(ip)) {
+    // Check rate limit first (shared across all chat endpoints)
+    const rateLimitResult = checkChatRateLimit(request)
+    if (!rateLimitResult.allowed) {
       return NextResponse.json(
-        { error: "Rate limit exceeded. Please try again in a minute." },
-        { status: 429 }
+        createRateLimitResponse(rateLimitResult.remaining, rateLimitResult.resetTime, "AI agent"),
+        { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '20',
+            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+            'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
+          }
+        }
       )
     }
 

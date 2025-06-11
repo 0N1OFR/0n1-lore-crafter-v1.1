@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import type { CharacterMemoryProfile } from '@/lib/memory-types'
+import { checkChatRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 
 // Sleep function for retry delays
 function sleep(ms: number): Promise<void> {
@@ -96,6 +97,23 @@ interface ChatRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check rate limit first (shared across all chat endpoints)
+    const rateLimitResult = checkChatRateLimit(request)
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        createRateLimitResponse(rateLimitResult.remaining, rateLimitResult.resetTime, "chat"),
+        { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '20',
+            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+            'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
+          }
+        }
+      )
+    }
+
     const { message, nftId, memoryProfile, provider, model = 'gpt-4o', enhancedPersonality = false, responseStyle = "dialogue" }: ChatRequest = await request.json()
 
     if (!message || !nftId || !memoryProfile || !provider) {

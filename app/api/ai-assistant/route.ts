@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import type { CharacterData } from "@/lib/types"
 import { generateEnhancedSystemPrompt } from "@/lib/ai/prompt-engineering"
+import { checkChatRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 
 // Initialize OpenAI client with error handling
 let openai: OpenAI | null = null
@@ -14,8 +15,25 @@ try {
   // We'll handle this in the route handler
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // Check rate limit first (shared across all chat endpoints)
+    const rateLimitResult = checkChatRateLimit(request)
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        createRateLimitResponse(rateLimitResult.remaining, rateLimitResult.resetTime, "AI assistant"),
+        { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '20',
+            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+            'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+            'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
+          }
+        }
+      )
+    }
+
     // Check if OpenAI client is initialized
     if (!openai) {
       console.error("OpenAI client not initialized")
