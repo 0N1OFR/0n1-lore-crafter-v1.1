@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkOwnershipRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { validateNFTOwnership } from '@/lib/validation'
 
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY
 const ON1_CONTRACT_ADDRESS = "0x3bf2922f4520a8ba0c2efc3d2a1539678dad5e9d"
@@ -26,29 +27,22 @@ export async function GET(request: NextRequest) {
   const address = searchParams.get("address")
   const tokenId = searchParams.get("tokenId")
 
-  // Input validation
-  if (!address || !tokenId) {
+  // 🛡️ COMPREHENSIVE INPUT VALIDATION - Prevent injection attacks
+  const validation = validateNFTOwnership({ address, tokenId })
+  
+  if (!validation.isValid) {
+    console.warn('Ownership verification validation failed:', validation.errors)
     return NextResponse.json(
-      { error: "Address and tokenId parameters are required" }, 
+      { 
+        error: "Invalid input parameters", 
+        details: validation.errors.map(e => e.message).join(', ')
+      }, 
       { status: 400 }
     )
   }
 
-  // Validate Ethereum address format
-  if (!/^0x[a-fA-F0-9]{40}$/i.test(address)) {
-    return NextResponse.json(
-      { error: "Invalid Ethereum address format" }, 
-      { status: 400 }
-    )
-  }
-
-  // Validate token ID format
-  if (!/^\d+$/.test(tokenId)) {
-    return NextResponse.json(
-      { error: "Invalid token ID format" }, 
-      { status: 400 }
-    )
-  }
+  // Use sanitized data
+  const { address: sanitizedAddress, tokenId: sanitizedTokenId } = validation.sanitized
 
   if (!OPENSEA_API_KEY) {
     return NextResponse.json(
@@ -59,7 +53,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Method 1: Check via OpenSea API (faster, but depends on OpenSea)
-    const ownsViaOpenSea = await checkOwnershipViaOpenSea(address, tokenId)
+    const ownsViaOpenSea = await checkOwnershipViaOpenSea(sanitizedAddress, sanitizedTokenId)
     
     return NextResponse.json({ 
       owns: ownsViaOpenSea,

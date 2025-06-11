@@ -6,6 +6,8 @@ import {
   checkDailyUsage,
   createDailyLimitResponse
 } from '@/lib/rate-limit'
+import { verifyAuthToken } from '@/lib/auth-middleware'
+import { validateAIAgent } from '@/lib/validation'
 
 // Sleep function for retry delays
 function sleep(ms: number): Promise<void> {
@@ -93,6 +95,17 @@ async function makeAPICallWithRetry(client: OpenAI, params: any, maxRetries = 3)
 
 export async function POST(request: NextRequest) {
   try {
+    // 🔐 AUTHENTICATION VERIFICATION - Required for all AI agent interactions
+    const authResult = await verifyAuthToken(request)
+    if (!authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    const walletAddress = authResult.user.wallet_address // Use authenticated wallet address
+
     // Check IP-based rate limit first (shared across all chat endpoints)
     const rateLimitResult = checkChatRateLimit(request)
     if (!rateLimitResult.allowed) {
@@ -110,6 +123,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 🛡️ COMPREHENSIVE INPUT VALIDATION - Prevent injection attacks
+    const requestBody = await request.json()
+    const validation = validateAIAgent(requestBody)
+    
+    if (!validation.isValid) {
+      console.warn('AI Agent validation failed:', validation.errors)
+      return NextResponse.json(
+        { 
+          error: 'Invalid input data', 
+          details: validation.errors.map(e => e.message).join(', ')
+        },
+        { status: 400 }
+      )
+    }
+
+    // Use sanitized data
     const {
       messages,
       systemPrompt,
@@ -119,12 +148,12 @@ export async function POST(request: NextRequest) {
       memoryContext = null,
       enhancedPersonality = false,
       responseStyle = "dialogue",
-      walletAddress = null, // Optional wallet address for daily limits
-    } = await request.json()
+    } = validation.sanitized
 
     // Debug logging
-    console.log(`[AI-AGENT] Model: ${model}, Enhanced: ${enhancedPersonality}, ResponseStyle: ${responseStyle}`)
+    console.log(`[AI-AGENT] Model: ${model}, Enhanced: ${enhancedPersonality}, ResponseStyle: ${responseStyle}, Wallet: ${walletAddress}`)
 
+    // Additional validation for required fields after sanitization
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: "Messages array is required" }, { status: 400 })
     }
@@ -133,30 +162,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "System prompt or memory context is required" }, { status: 400 })
     }
 
-    // Check daily usage limits per wallet if wallet address is provided
-    if (walletAddress) {
-      // Estimate token count for agent response (typically longer than assistant)
-      const messageTokens = messages.reduce((acc: number, msg: any) => acc + Math.ceil(msg.content.length / 4), 0)
-      const estimatedTokens = messageTokens + Math.ceil(maxTokens / 2) // Input + estimated response
-      
-      const dailyUsageResult = checkDailyUsage(walletAddress, 'ai_messages', estimatedTokens)
-      if (!dailyUsageResult.allowed) {
-        return NextResponse.json(
-          createDailyLimitResponse(dailyUsageResult.remaining, dailyUsageResult.resetTime, "AI agent"),
-          { 
-            status: 429,
-            headers: {
-              'X-Daily-Limit-AI-Messages': '20',
-              'X-Daily-Limit-Summaries': '5',
-              'X-Daily-Limit-Tokens': '50000',
-              'X-Daily-Remaining-AI-Messages': dailyUsageResult.remaining.aiMessages.toString(),
-              'X-Daily-Remaining-Summaries': dailyUsageResult.remaining.summaries.toString(),
-              'X-Daily-Remaining-Tokens': dailyUsageResult.remaining.totalTokens.toString(),
-              'X-Daily-Reset': new Date(dailyUsageResult.resetTime).toISOString()
-            }
+    // Check daily usage limits per authenticated wallet (always check since we have walletAddress from auth)
+    // Estimate token count for agent response (typically longer than assistant)
+    const messageTokens = messages.reduce((acc: number, msg: any) => acc + Math.ceil(msg.content.length / 4), 0)
+    const estimatedTokens = messageTokens + Math.ceil(maxTokens / 2) // Input + estimated response
+    
+    const dailyUsageResult = checkDailyUsage(walletAddress, 'ai_messages', estimatedTokens)
+    if (!dailyUsageResult.allowed) {
+      return NextResponse.json(
+        createDailyLimitResponse(dailyUsageResult.remaining, dailyUsageResult.resetTime, "AI agent"),
+        { 
+          status: 429,
+          headers: {
+            'X-Daily-Limit-AI-Messages': '20',
+            'X-Daily-Limit-Summaries': '5',
+            'X-Daily-Limit-Tokens': '50000',
+            'X-Daily-Remaining-AI-Messages': dailyUsageResult.remaining.aiMessages.toString(),
+            'X-Daily-Remaining-Summaries': dailyUsageResult.remaining.summaries.toString(),
+            'X-Daily-Remaining-Tokens': dailyUsageResult.remaining.totalTokens.toString(),
+            'X-Daily-Reset': new Date(dailyUsageResult.resetTime).toISOString()
           }
-        )
-      }
+        }
+      )
     }
 
     // Check which API to use
@@ -251,14 +278,12 @@ Create a rich, immersive scene with detailed descriptions:
 
     // Return successful response with usage information
     const responseHeaders: Record<string, string> = {}
-    if (walletAddress) {
-      // Get updated usage info after processing (don't increment again, just get current state)
-      const currentUsage = checkDailyUsage(walletAddress, 'ai_messages', 0)
-      if (currentUsage.allowed) {
-        responseHeaders['X-Daily-Remaining-AI-Messages'] = currentUsage.remaining.aiMessages.toString()
-        responseHeaders['X-Daily-Remaining-Summaries'] = currentUsage.remaining.summaries.toString()
-        responseHeaders['X-Daily-Remaining-Tokens'] = currentUsage.remaining.totalTokens.toString()
-      }
+    // Always include usage info since we have authenticated walletAddress
+    const currentUsage = checkDailyUsage(walletAddress, 'ai_messages', 0)
+    if (currentUsage.allowed) {
+      responseHeaders['X-Daily-Remaining-AI-Messages'] = currentUsage.remaining.aiMessages.toString()
+      responseHeaders['X-Daily-Remaining-Summaries'] = currentUsage.remaining.summaries.toString()
+      responseHeaders['X-Daily-Remaining-Tokens'] = currentUsage.remaining.totalTokens.toString()
     }
 
     return NextResponse.json({ message: response.choices[0].message.content }, { headers: responseHeaders })

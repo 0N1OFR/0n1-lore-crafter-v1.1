@@ -144,17 +144,22 @@ export async function getSoulsFromDatabase(userId: string): Promise<DatabaseSoul
   }
 }
 
-export async function deleteSoulFromDatabase(soulId: string, userId: string): Promise<boolean> {
+export async function deleteSoulFromDatabase(soulId: string, authToken?: string): Promise<boolean> {
   if (!isSupabaseConfigured()) {
     return false
   }
 
   try {
+    // Use authenticated client if token provided
+    if (authToken) {
+      await supabase.auth.setSession({ access_token: authToken, refresh_token: '' })
+    }
+
     const { error } = await supabase
       .from('souls')
       .delete()
       .eq('id', soulId)
-      .eq('user_id', userId)
+      // RLS policy will automatically filter by authenticated user
 
     if (error) {
       console.error('Error deleting soul from database:', error)

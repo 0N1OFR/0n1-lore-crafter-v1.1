@@ -2,6 +2,9 @@ import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
 import { WalletProvider } from "@/components/wallet/wallet-provider"
+import { AuthProvider } from "@/components/auth/auth-provider"
+import { AuthGuard } from "@/components/auth/auth-guard"
+import { ReauthPopup } from "@/components/auth/reauth-popup"
 import { Header } from "@/components/header"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Inter } from "next/font/google"
@@ -24,8 +27,13 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark">
           <WalletProvider>
-            <Header />
-            {children}
+            <AuthProvider>
+              <AuthGuard>
+                <Header />
+                {children}
+              </AuthGuard>
+              <ReauthPopup />
+            </AuthProvider>
           </WalletProvider>
         </ThemeProvider>
       </body>

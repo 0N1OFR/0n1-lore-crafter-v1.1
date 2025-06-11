@@ -732,24 +732,21 @@ export default function AgentPage() {
         }
       }
 
-      const response = await fetch("/api/ai-agent", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMessage].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          systemPrompt: systemPrompt,
-          model: agentConfig.model,
-          temperature: agentConfig.temperature,
-          maxTokens: agentConfig.maxTokens,
-          enhancedPersonality: enhancedPersonality,
-          responseStyle: responseStyle,
-          walletAddress: address, // Include wallet address for daily limits
-        }),
+      // Import the authenticated API utility at the top of the file
+      const { api } = await import("@/lib/authenticated-api")
+      
+      const response = await api.post("/api/ai-agent", {
+        messages: [...messages, userMessage].map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+        systemPrompt: systemPrompt,
+        model: agentConfig.model,
+        temperature: agentConfig.temperature,
+        maxTokens: agentConfig.maxTokens,
+        enhancedPersonality: enhancedPersonality,
+        responseStyle: responseStyle,
+        // walletAddress no longer needed - server gets it from auth token
       })
 
       // Update usage tracking from response headers

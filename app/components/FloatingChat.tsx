@@ -23,6 +23,7 @@ import { useWallet } from "@/components/wallet/wallet-provider"
 import { UsageIndicator } from "@/components/ui/usage-indicator"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { useUsageTracking } from "@/hooks/use-usage-tracking"
+import { sanitizeUserInput, validateInput, checkForDangerousContent } from "@/lib/client-validation"
 
 interface Message {
   id: string
@@ -105,6 +106,19 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return
     
+    // 🛡️ CLIENT-SIDE VALIDATION - Check for dangerous content
+    if (checkForDangerousContent(input)) {
+      setError("security_error:Message contains potentially dangerous content")
+      return
+    }
+    
+    // Validate message length and content
+    const validation = validateInput(input, 'message')
+    if (!validation.isValid) {
+      setError(`validation_error:${validation.error}`)
+      return
+    }
+    
     // Check usage limits before sending
     if (!canUseFeature('messages')) {
       setError("daily_limit:Daily message limit reached")
@@ -113,10 +127,13 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
     
     setError(null) // Clear any previous errors
 
+    // Sanitize user input
+    const sanitizedContent = sanitizeUserInput(input.trim())
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input.trim(),
+      content: sanitizedContent,
       timestamp: new Date()
     }
 

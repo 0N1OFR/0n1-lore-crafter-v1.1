@@ -2,228 +2,264 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react"
 import { useWallet } from "@/components/wallet/wallet-provider"
-import { useMatrica } from "@/components/wallet/matrica-provider"
-import { 
-  getOrCreateUser, 
-  migrateLocalStorageToDatabase, 
-  syncLocalStorageWithDatabase,
-  checkDatabaseConnection,
-  type DatabaseUser 
-} from "@/lib/database"
-import { isSupabaseConfigured } from "@/lib/supabase"
+import { setAuthStore } from "@/lib/authenticated-api"
+
+interface AuthUser {
+  id: string
+  wallet_address: string
+  email?: string
+}
 
 interface AuthContextType {
-  user: DatabaseUser | null
+  // Authentication state
   isAuthenticated: boolean
-  isLoading: boolean
-  isDatabaseConnected: boolean
-  migrationStatus: {
-    needed: boolean
-    completed: boolean
-    inProgress: boolean
-    result?: {
-      souls: number
-      memories: number
-      chats: number
-      success: boolean
-    }
-  }
-  authenticateUser: () => Promise<void>
-  migrateToDatabaseNow: () => Promise<void>
-  syncFromDatabase: () => Promise<void>
-  error: string | null
+  isAuthenticating: boolean
+  user: AuthUser | null
+  accessToken: string | null
+  
+  // Authentication methods
+  authenticate: () => Promise<void>
+  logout: () => void
+  
+  // Error state
+  authError: string | null
+  clearAuthError: () => void
+  
+  // Re-authentication
+  showReauthPopup: boolean
+  triggerReauth: () => void
+  dismissReauth: () => void
 }
 
 const AuthContext = createContext<AuthContextType>({
-  user: null,
   isAuthenticated: false,
-  isLoading: false,
-  isDatabaseConnected: false,
-  migrationStatus: {
-    needed: false,
-    completed: false,
-    inProgress: false
-  },
-  authenticateUser: async () => {},
-  migrateToDatabaseNow: async () => {},
-  syncFromDatabase: async () => {},
-  error: null
+  isAuthenticating: false,
+  user: null,
+  accessToken: null,
+  authenticate: async () => {},
+  logout: () => {},
+  authError: null,
+  clearAuthError: () => {},
+  showReauthPopup: false,
+  triggerReauth: () => {},
+  dismissReauth: () => {}
 })
 
 export const useAuth = () => useContext(AuthContext)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { address, isConnected: walletConnected } = useWallet()
-  const { user: matricaUser, isConnected: matricaConnected } = useMatrica()
-  
-  const [user, setUser] = useState<DatabaseUser | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isDatabaseConnected, setIsDatabaseConnected] = useState(false)
-  const [migrationStatus, setMigrationStatus] = useState<{
-    needed: boolean
-    completed: boolean
-    inProgress: boolean
-    result?: {
-      souls: number
-      memories: number
-      chats: number
-      success: boolean
-    }
-  }>({
-    needed: false,
-    completed: false,
-    inProgress: false
-  })
-  const [error, setError] = useState<string | null>(null)
+interface AuthProviderProps {
+  children: React.ReactNode
+}
 
-  // Check database connection on mount
+export function AuthProvider({ children }: AuthProviderProps) {
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isAuthenticating, setIsAuthenticating] = useState(false)
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [showReauthPopup, setShowReauthPopup] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Wallet context
+  const { address, isConnected } = useWallet()
+
+  // Initialize auth state from localStorage
   useEffect(() => {
-    const checkConnection = async () => {
-      if (isSupabaseConfigured()) {
-        const connected = await checkDatabaseConnection()
-        setIsDatabaseConnected(connected)
+    setMounted(true)
+    const savedToken = localStorage.getItem("authToken")
+    const savedUser = localStorage.getItem("authUser")
+    
+    if (savedToken && savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser)
+        setAccessToken(savedToken)
+        setUser(parsedUser)
+        setIsAuthenticated(true)
+        
+        // Update API utility with restored token
+        setAuthStore(savedToken, triggerReauth)
+        
+        console.log("Restored authentication from localStorage")
+      } catch (error) {
+        console.error("Failed to parse saved user data:", error)
+        // Clear corrupted data
+        localStorage.removeItem("authToken")
+        localStorage.removeItem("authUser")
       }
     }
-    checkConnection()
   }, [])
 
-  // Authenticate user when wallet/matrica connects
+  // Auto-logout if wallet disconnects
   useEffect(() => {
-    if ((walletConnected && address) || (matricaConnected && matricaUser)) {
-      authenticateUser()
-    } else {
-      setUser(null)
+    if (mounted && isAuthenticated && !isConnected) {
+      console.log("Wallet disconnected, logging out...")
+      logout()
     }
-  }, [walletConnected, address, matricaConnected, matricaUser])
+  }, [isConnected, isAuthenticated, mounted])
 
-  const authenticateUser = async () => {
-    if (!isDatabaseConnected) {
-      console.log('Database not connected, using localStorage only')
+  const authenticate = async () => {
+    if (!address || !isConnected) {
+      setAuthError("Please connect your wallet first")
       return
     }
 
-    setIsLoading(true)
-    setError(null)
+    setIsAuthenticating(true)
+    setAuthError(null)
 
     try {
-      let walletAddress: string | undefined
-      let matricaId: string | undefined
-      let username: string | undefined
-
-      // Get authentication data from wallet or matrica
-      if (walletConnected && address) {
-        walletAddress = address
+      // Step 1: Get authentication challenge
+      console.log("Requesting authentication challenge...")
+      const challengeResponse = await fetch(`/api/auth/wallet?address=${address}`)
+      
+      if (!challengeResponse.ok) {
+        throw new Error("Failed to get authentication challenge")
       }
       
-      if (matricaConnected && matricaUser) {
-        matricaId = matricaUser.id
-        username = matricaUser.username
+      const { nonce, message } = await challengeResponse.json()
+      console.log("Got authentication challenge")
+
+      // Step 2: Request user to sign message
+      console.log("Requesting wallet signature...")
+      if (!window.ethereum) {
+        throw new Error("MetaMask not found")
       }
 
-      if (!walletAddress && !matricaId) {
-        throw new Error('No wallet or Matrica connection found')
-      }
+      const signature = await window.ethereum.request({
+        method: "personal_sign",
+        params: [message, address]
+      })
+      console.log("Got wallet signature")
 
-      // Get or create user in database
-      const dbUser = await getOrCreateUser(walletAddress, matricaId, username)
-      
-      if (dbUser) {
-        setUser(dbUser)
-        
-        // Check if migration is needed
-        const hasLocalData = checkForLocalStorageData()
-        if (hasLocalData && !localStorage.getItem('migration_completed')) {
-          setMigrationStatus(prev => ({ ...prev, needed: true }))
-        }
-        
-        console.log('User authenticated:', dbUser.username || dbUser.wallet_address)
-      } else {
-        throw new Error('Failed to authenticate user')
-      }
-    } catch (err: any) {
-      console.error('Authentication error:', err)
-      setError(err.message || 'Authentication failed')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const checkForLocalStorageData = (): boolean => {
-    if (typeof window === 'undefined') return false
-    
-    const localSouls = localStorage.getItem('oni-souls')
-    const localMemories = localStorage.getItem('ai_agent_memories')
-    const localChats = localStorage.getItem('oni-chat-archives')
-    
-    return !!(localSouls || localMemories || localChats)
-  }
-
-  const migrateToDatabaseNow = async () => {
-    if (!user || !isDatabaseConnected) {
-      setError('Cannot migrate: user not authenticated or database not connected')
-      return
-    }
-
-    setMigrationStatus(prev => ({ ...prev, inProgress: true }))
-    setError(null)
-
-    try {
-      const result = await migrateLocalStorageToDatabase(user.id)
-      
-      setMigrationStatus({
-        needed: false,
-        completed: true,
-        inProgress: false,
-        result
+      // Step 3: Submit signature for authentication
+      console.log("Submitting authentication...")
+      const authResponse = await fetch("/api/auth/wallet", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          address,
+          signature,
+          message,
+          nonce
+        })
       })
 
-      // Mark migration as completed
-      localStorage.setItem('migration_completed', 'true')
+      if (!authResponse.ok) {
+        const errorData = await authResponse.json()
+        throw new Error(errorData.error || "Authentication failed")
+      }
+
+      const { access_token, user: authUser } = await authResponse.json()
+      console.log("Authentication successful")
+
+      // Clear existing localStorage data (force re-creation)
+      console.log("Clearing existing app data for fresh start...")
+      const keysToKeep = ["walletAddress", "authToken", "authUser"]
+      const keysToRemove = []
       
-      console.log('Migration completed:', result)
-    } catch (err: any) {
-      console.error('Migration error:', err)
-      setError(err.message || 'Migration failed')
-      setMigrationStatus(prev => ({ ...prev, inProgress: false }))
-    }
-  }
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && !keysToKeep.includes(key)) {
+          keysToRemove.push(key)
+        }
+      }
+      
+      keysToRemove.forEach(key => localStorage.removeItem(key))
 
-  const syncFromDatabase = async () => {
-    if (!user || !isDatabaseConnected) {
-      setError('Cannot sync: user not authenticated or database not connected')
-      return
-    }
+      // Save auth data
+      setAccessToken(access_token)
+      setUser(authUser)
+      setIsAuthenticated(true)
+      
+      localStorage.setItem("authToken", access_token)
+      localStorage.setItem("authUser", JSON.stringify(authUser))
+      
+      // Update API utility with new token
+      setAuthStore(access_token, triggerReauth)
+      
+      console.log("User authenticated successfully:", authUser)
 
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      await syncLocalStorageWithDatabase(user.id)
-      console.log('Successfully synced from database')
-    } catch (err: any) {
-      console.error('Sync error:', err)
-      setError(err.message || 'Sync failed')
+    } catch (error: any) {
+      console.error("Authentication error:", error)
+      setAuthError(error.message || "Authentication failed")
     } finally {
-      setIsLoading(false)
+      setIsAuthenticating(false)
     }
   }
 
-  const isAuthenticated = !!(user && (walletConnected || matricaConnected))
+  const logout = () => {
+    console.log("Logging out...")
+    
+    // Clear auth state
+    setIsAuthenticated(false)
+    setUser(null)
+    setAccessToken(null)
+    setAuthError(null)
+    setShowReauthPopup(false)
+    
+    // Clear localStorage
+    localStorage.removeItem("authToken")
+    localStorage.removeItem("authUser")
+    
+    // Clear API utility
+    setAuthStore(null, null)
+    
+    // Clear all app data
+    const keysToKeep = ["walletAddress"] // Keep wallet connection
+    const keysToRemove = []
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && !keysToKeep.includes(key)) {
+        keysToRemove.push(key)
+      }
+    }
+    
+    keysToRemove.forEach(key => localStorage.removeItem(key))
+    
+    console.log("Logout complete")
+    
+    // Refresh page to ensure clean state
+    if (typeof window !== "undefined") {
+      window.location.reload()
+    }
+  }
+
+  const clearAuthError = () => {
+    setAuthError(null)
+  }
+
+  const triggerReauth = () => {
+    setShowReauthPopup(true)
+  }
+
+  const dismissReauth = () => {
+    setShowReauthPopup(false)
+  }
+
+  // Don't render on server
+  if (!mounted) {
+    return <>{children}</>
+  }
+
+  const value: AuthContextType = {
+    isAuthenticated,
+    isAuthenticating,
+    user,
+    accessToken,
+    authenticate,
+    logout,
+    authError,
+    clearAuthError,
+    showReauthPopup,
+    triggerReauth,
+    dismissReauth
+  }
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated,
-        isLoading,
-        isDatabaseConnected,
-        migrationStatus,
-        authenticateUser,
-        migrateToDatabaseNow,
-        syncFromDatabase,
-        error
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

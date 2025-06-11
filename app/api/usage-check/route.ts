@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkDailyUsage } from '@/lib/rate-limit'
+import { verifyAuthToken } from '@/lib/auth-middleware'
 
 export async function POST(request: NextRequest) {
   try {
-    const { walletAddress } = await request.json()
-    
-    if (!walletAddress) {
-      return NextResponse.json({ error: 'Wallet address required' }, { status: 400 })
+    // 🔐 AUTHENTICATION VERIFICATION - Required for usage checks
+    const authResult = await verifyAuthToken(request)
+    if (!authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: 401 }
+      )
     }
 
+    const walletAddress = authResult.user.wallet_address // Use authenticated wallet address
+
+    // No need to get walletAddress from request body anymore
+    // const { walletAddress } = await request.json()
+    
     // Check current usage without incrementing
     const usage = await checkDailyUsage(walletAddress, "ai_messages", 0) // Check without incrementing
 
