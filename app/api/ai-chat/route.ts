@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
       responseHeaders['X-Daily-Remaining-Tokens'] = currentUsage.remaining.totalTokens.toString()
     }
 
-    return NextResponse.json({ response }, { headers: responseHeaders })
+    return NextResponse.json({ message: response }, { headers: responseHeaders })
 
   } catch (error: any) {
     console.error('AI Chat error:', error)

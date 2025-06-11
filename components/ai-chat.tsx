@@ -115,7 +115,7 @@ export function AiChat({ characterData, currentStep, subStep = null }: AiChatPro
         ])
       } else {
         // Add AI response to chat
-        setMessages((prev) => [...prev, { role: "assistant", content: data.response }])
+        setMessages((prev) => [...prev, { role: "assistant", content: data.message || data.response || "I'm having trouble responding right now." }])
       }
     } catch (err) {
       console.error("Error in chat:", err)

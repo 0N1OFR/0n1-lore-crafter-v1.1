@@ -189,7 +189,7 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.response,
+        content: data.message || data.response || "I'm having trouble responding right now.",
         timestamp: new Date()
       }
 
