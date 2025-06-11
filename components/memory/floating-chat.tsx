@@ -132,7 +132,7 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.response,
+        content: data.message || data.response || "I'm having trouble responding right now.",
         timestamp: new Date()
       }
 
@@ -275,6 +275,9 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
                       <option value="gpt-4">GPT-4</option>
                       <option value="gpt-4-turbo">GPT-4 Turbo</option>
                       <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                      <option value="llama-3.1-70b">🔥 Llama 3.1 70B (Uncensored)</option>
+                      <option value="llama-3.1-8b">🔥 Llama 3.1 8B (Uncensored)</option>
+                      <option value="llama-3-70b">🔥 Llama 3 70B (Uncensored)</option>
                     </select>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -291,6 +294,9 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
                   </div>
                   <div className="text-xs text-purple-200/70 mb-2">
                     ⚠️ Enhanced mode allows more authentic aggressive/edgy personalities. Use for mature content only.
+                  </div>
+                  <div className="text-xs text-green-200/70 mb-2">
+                    🔥 Llama models are uncensored, free, and perfect for aggressive personalities!
                   </div>
                   <div className="flex gap-2">
                     <Button 
