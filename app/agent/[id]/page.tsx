@@ -1049,6 +1049,11 @@ export default function AgentPage() {
       <div className="max-w-4xl mx-auto p-4 min-h-screen flex flex-col">
         {/* Character Info & Usage Tracking */}
         <div className="mb-4 space-y-3">
+          {/* TEST BANNER - TO CONFIRM DEPLOYMENT IS LIVE */}
+          <div className="bg-green-500/20 border border-green-500 rounded-lg p-3 text-center">
+            <p className="text-green-300 font-bold">🚀 NEW DEPLOYMENT LIVE - Usage Indicator Should Show Below</p>
+          </div>
+          
           <Card className="border border-purple-500/30 bg-black/60 backdrop-blur-sm">
             <CardContent className="p-4">
               <div className="flex justify-between items-center">
