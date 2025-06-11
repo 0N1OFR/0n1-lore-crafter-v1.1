@@ -146,6 +146,57 @@ export default function AgentPage() {
   // Usage tracking
   const { usage, updateUsage, isNearLimit, getWarningMessage, canUseFeature } = useUsageTracking()
 
+  // Temporary localStorage clearing function for debugging
+  const clearAllStoredData = () => {
+    const keysToRemove = [
+      'ai_agent_memories',
+      'ai_agent_conversations', 
+      'oni-memory-profiles',
+      'oni-souls',
+      `memory-segments-${soul?.data.pfpId}`,
+      'oni-lore-crafter-chat-archives',
+      'oni-user-metrics',
+      'oni-character-insights',
+      'oni-usage-tracking',
+      'walletAddress'
+    ]
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key)
+    })
+    
+    // Clear any keys that start with specific prefixes
+    const allKeys = Object.keys(localStorage)
+    allKeys.forEach(key => {
+      if (key.startsWith('memory-segments-') || 
+          key.startsWith('agent-settings-') ||
+          key.startsWith('chat-') ||
+          key.startsWith('oni-')) {
+        localStorage.removeItem(key)
+      }
+    })
+    
+    console.log('All localStorage data cleared')
+    
+    // Force page reload to ensure clean state
+    window.location.reload()
+  }
+
+  // Function to log current localStorage contents for debugging
+  const logLocalStorageContents = () => {
+    console.log('=== Current localStorage Contents ===')
+    const allKeys = Object.keys(localStorage)
+    allKeys.forEach(key => {
+      try {
+        const value = localStorage.getItem(key)
+        console.log(`${key}:`, value ? JSON.parse(value) : value)
+      } catch {
+        console.log(`${key}:`, localStorage.getItem(key))
+      }
+    })
+    console.log('=== End localStorage Contents ===')
+  }
+
   // Load saved memory segments on mount
   useEffect(() => {
     if (soul?.data.pfpId) {
@@ -1048,8 +1099,30 @@ export default function AgentPage() {
       <div className="max-w-4xl mx-auto p-4 min-h-screen flex flex-col">
         {/* Character Info & Usage Tracking */}
         <div className="mb-4 space-y-3">
-          {/* NO CHARACTER SUMMARIES OR "THE HERO" SECTIONS SHOULD APPEAR HERE */}
-          {/* CACHE VERSION: v2.1 - Character summaries removed */}
+          {/* DEBUG: Log any potential character display data */}
+          {(() => {
+            console.log('Debug - Character archetype:', soul?.data.archetype)
+            console.log('Debug - Character background:', soul?.data.background)
+            console.log('Debug - Memory stats:', memoryStats)
+            console.log('Debug - Page loaded at:', new Date().toISOString())
+            
+            // Force check for any preview components or character summaries
+            if (soul?.data.archetype === "The Hero") {
+              console.warn('WARNING: Character archetype is "The Hero" - check for preview displays')
+            }
+            if (soul?.data.background?.includes("Blazing Temple")) {
+              console.warn('WARNING: Background contains Blazing Temple text - check for preview displays')
+            }
+            
+            return null
+          })()}
+          
+                     {/* ENSURE NO CHARACTER PREVIEW/SUMMARY COMPONENTS RENDER */}
+           {false && soul?.data?.archetype && (
+             <div style={{display: 'none'}}>
+               This should never render: {soul?.data?.archetype} - {soul?.data?.background}
+             </div>
+           )}
           
           <Card className="border border-purple-500/30 bg-black/60 backdrop-blur-sm">
             <CardContent className="p-4">
@@ -1085,6 +1158,39 @@ export default function AgentPage() {
             showWarnings={true}
             className=""
           />
+          
+          {/* TEMPORARY DEBUG SECTION - Remove after fixing */}
+          <Card className="border border-red-500/50 bg-red-900/20 backdrop-blur-sm">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-red-300 font-medium">Debug Tools (Temporary)</h3>
+                  <p className="text-red-200/70 text-xs">Tools to clear localStorage and inspect stored data</p>
+                  {!isConnected && (
+                    <p className="text-yellow-300 text-xs mt-1">⚠️ Wallet not connected - data clearing still works</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={logLocalStorageContents}
+                    className="border-red-500/30 text-red-300 hover:bg-red-900/30"
+                  >
+                    Inspect Storage
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAllStoredData}
+                    className="border-red-500/30 text-red-300 hover:bg-red-900/30"
+                  >
+                    Clear All Data
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Additional Smart Warnings (if not already shown in Usage Indicator) */}
