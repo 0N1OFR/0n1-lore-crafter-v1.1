@@ -125,14 +125,24 @@ export async function POST(request: NextRequest) {
 
     // 🛡️ COMPREHENSIVE INPUT VALIDATION - Prevent injection attacks
     const requestBody = await request.json()
+    
+    // Debug logging
+    console.log('=== AI AGENT DEBUG ===')
+    console.log('Request body keys:', Object.keys(requestBody))
+    console.log('Messages:', requestBody.messages?.length || 'undefined')
+    console.log('SystemPrompt:', requestBody.systemPrompt ? 'present' : 'missing')
+    console.log('Model:', requestBody.model)
+    
     const validation = validateAIAgent(requestBody)
     
     if (!validation.isValid) {
       console.warn('AI Agent validation failed:', validation.errors)
+      console.log('Full request body:', JSON.stringify(requestBody, null, 2))
       return NextResponse.json(
         { 
           error: 'Invalid input data', 
-          details: validation.errors.map(e => e.message).join(', ')
+          details: validation.errors.map(e => `${e.field}: ${e.message}`).join(', '),
+          validationErrors: validation.errors
         },
         { status: 400 }
       )

@@ -143,13 +143,6 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
     setIsLoading(true)
 
     try {
-      // Debug logging
-      console.log('=== AI CHAT DEBUG ===')
-      console.log('Address:', address)
-      console.log('Auth token:', localStorage.getItem('authToken') ? 'Present' : 'Missing')
-      console.log('AI Settings:', aiSettings)
-      console.log('Sending request to /api/ai-chat...')
-
       const response = await api.post('/api/ai-chat', {
         message: userMessage.content,
         nftId: soul.data.pfpId,
