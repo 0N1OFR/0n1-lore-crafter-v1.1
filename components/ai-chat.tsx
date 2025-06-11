@@ -9,6 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sparkles, Send, RefreshCw, AlertCircle } from "lucide-react"
 import type { CharacterData } from "@/lib/types"
+import { api } from "@/lib/authenticated-api"
 
 interface Message {
   role: "user" | "assistant"
@@ -88,17 +89,11 @@ export function AiChat({ characterData, currentStep, subStep = null }: AiChatPro
     setMessages((prev) => [...prev, { role: "user", content: userMessage }])
 
     try {
-      const response = await fetch("/api/ai-chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          characterData,
-          currentStep,
-          subStep,
-          messages: [...messages, { role: "user", content: userMessage }],
-        }),
+      const response = await api.post("/api/ai-chat", {
+        characterData,
+        currentStep,
+        subStep,
+        messages: [...messages, { role: "user", content: userMessage }],
       })
 
       if (!response.ok) {

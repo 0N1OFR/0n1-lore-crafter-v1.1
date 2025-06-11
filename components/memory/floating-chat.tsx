@@ -20,6 +20,7 @@ import Image from "next/image"
 import type { StoredSoul } from "@/lib/storage"
 import type { CharacterMemoryProfile } from "@/lib/memory-types"
 import { useWallet } from "@/components/wallet/wallet-provider"
+import { api } from "@/lib/authenticated-api"
 
 interface Message {
   id: string
@@ -107,25 +108,19 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/ai-chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await api.post('/api/ai-chat', {
+        message: userMessage.content,
+        nftId: soul.data.pfpId,
+        memoryProfile: {
+          ...memoryProfile,
+          metadata: {
+            ...memoryProfile.metadata,
+            walletAddress: address // Include wallet address for daily limits
+          }
         },
-        body: JSON.stringify({
-          message: userMessage.content,
-          nftId: soul.data.pfpId,
-          memoryProfile: {
-            ...memoryProfile,
-            metadata: {
-              ...memoryProfile.metadata,
-              walletAddress: address // Include wallet address for daily limits
-            }
-          },
-          provider: aiSettings.provider,
-          model: aiSettings.model,
-          enhancedPersonality: aiSettings.enhancedPersonality
-        })
+        provider: aiSettings.provider,
+        model: aiSettings.model,
+        enhancedPersonality: aiSettings.enhancedPersonality
       })
 
       const data = await response.json()

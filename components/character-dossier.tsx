@@ -23,6 +23,7 @@ import {
 import Image from "next/image"
 import type { CharacterData } from "@/lib/types"
 import type { CharacterMemoryProfile } from "@/lib/memory-types"
+import { api } from "@/lib/authenticated-api"
 import { getMemoryProfile } from "@/lib/memory-types"
 
 interface CharacterDossierProps {
@@ -48,15 +49,9 @@ export function CharacterDossier({ characterData, className = "" }: CharacterDos
     setSummaryError("")
     
     try {
-      const response = await fetch('/api/generate-summary', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          characterData,
-          memoryProfile
-        })
+      const response = await api.post('/api/generate-summary', {
+        characterData,
+        memoryProfile
       })
 
       if (!response.ok) {

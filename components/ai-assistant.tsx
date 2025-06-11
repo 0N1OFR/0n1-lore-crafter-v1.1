@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Sparkles, RefreshCw, AlertCircle } from "lucide-react"
 import type { CharacterData } from "@/lib/types"
+import { api } from "@/lib/authenticated-api"
 
 interface AiAssistantProps {
   characterData: CharacterData
@@ -252,16 +253,10 @@ export function AiAssistant({
 
       // For production, try to use the API
       try {
-        const response = await fetch("/api/ai-assistant", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            characterData,
-            currentStep,
-            subStep,
-          }),
+        const response = await api.post("/api/ai-assistant", {
+          characterData,
+          currentStep,
+          subStep,
         })
 
         // Handle non-JSON responses

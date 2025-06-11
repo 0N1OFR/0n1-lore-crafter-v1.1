@@ -24,6 +24,7 @@ import { UsageIndicator } from "@/components/ui/usage-indicator"
 import { ErrorMessage } from "@/components/ui/error-message"
 import { useUsageTracking } from "@/hooks/use-usage-tracking"
 import { sanitizeUserInput, validateInput, checkForDangerousContent } from "@/lib/client-validation"
+import { api } from "@/lib/authenticated-api"
 
 interface Message {
   id: string
@@ -142,26 +143,20 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/ai-chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await api.post('/api/ai-chat', {
+        message: userMessage.content,
+        nftId: soul.data.pfpId,
+        memoryProfile: {
+          ...memoryProfile,
+          metadata: {
+            ...memoryProfile.metadata,
+            walletAddress: address // Include wallet address for daily limits
+          }
         },
-        body: JSON.stringify({
-          message: userMessage.content,
-          nftId: soul.data.pfpId,
-          memoryProfile: {
-            ...memoryProfile,
-            metadata: {
-              ...memoryProfile.metadata,
-              walletAddress: address // Include wallet address for daily limits
-            }
-          },
-          provider: aiSettings.provider,
-          model: aiSettings.model,
-          enhancedPersonality: aiSettings.enhancedPersonality,
-          responseStyle: aiSettings.responseStyle
-        })
+        provider: aiSettings.provider,
+        model: aiSettings.model,
+        enhancedPersonality: aiSettings.enhancedPersonality,
+        responseStyle: aiSettings.responseStyle
       })
 
       // Update usage tracking from response headers
