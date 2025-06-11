@@ -329,6 +329,54 @@ export class AuthValidator extends InputValidator {
 }
 
 export class AIValidator extends InputValidator {
+  // Special validation for system prompts that allows character roleplay content
+  validateSystemPrompt(field: string, value: any, required: boolean = false): string | null {
+    if (value === undefined || value === null) {
+      if (required) {
+        this.addError(field, `${field} is required`, 'REQUIRED')
+      }
+      return null
+    }
+
+    const stringValue = String(value)
+    const sanitized = InputValidator.sanitizeText(stringValue)
+
+    // Check length constraints
+    if (sanitized.length > LENGTH_LIMITS.SYSTEM_PROMPT.max) {
+      this.addError(field, `${field} must be no more than ${LENGTH_LIMITS.SYSTEM_PROMPT.max} characters`, 'MAX_LENGTH')
+      return null
+    }
+
+    // Only check for the most dangerous patterns (SQL injection, XSS) but allow roleplay content
+    const criticalPatterns = [
+      // SQL Injection patterns
+      /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|SCRIPT)\b)/gi,
+      /('|(\\x27)|(\\x2D\\x2D)|(%27)|(%2D%2D))/gi,
+      /((\%3D)|(=))[^\n]*((\%27)|(\\x27)|(\')|((\%3B)|(;)))/gi,
+      
+      // XSS patterns
+      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+      /javascript:/gi,
+      /<iframe/gi,
+      /<embed/gi,
+      /<object/gi,
+      
+      // Only the most critical prompt injection (not roleplay blocks)
+      /ignore\s+(previous|above|all)\s+(instructions|prompts?)/gi,
+      /forget\s+(everything|all|previous)/gi,
+      /override\s+(previous|system|safety)/gi,
+      /jailbreak/gi
+    ]
+
+    const hasDangerousContent = criticalPatterns.some(pattern => pattern.test(sanitized))
+    if (hasDangerousContent) {
+      this.addError(field, `${field} contains potentially dangerous content`, 'DANGEROUS_CONTENT')
+      return null
+    }
+
+    return sanitized
+  }
+
   validateChatRequest(data: any): ValidationResult {
     const sanitized: any = {}
 
@@ -384,12 +432,9 @@ export class AIValidator extends InputValidator {
       }
     })
 
-    // Validate prompts
+    // Validate prompts - use special validation for system prompts that allows roleplay content
     if (data.systemPrompt) {
-      sanitized.systemPrompt = this.validateString('systemPrompt', data.systemPrompt, {
-        required: false,
-        ...LENGTH_LIMITS.SYSTEM_PROMPT
-      })
+      sanitized.systemPrompt = this.validateSystemPrompt('systemPrompt', data.systemPrompt, false)
     }
 
     if (data.memoryContext) {
