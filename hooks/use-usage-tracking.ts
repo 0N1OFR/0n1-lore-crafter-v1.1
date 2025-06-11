@@ -22,16 +22,16 @@ interface UsageTrackingHook {
 export function useUsageTracking(): UsageTrackingHook {
   const { address } = useWallet()
   const [usage, setUsage] = useState<UsageData>({
-    aiMessages: { used: 0, limit: 20 },
-    summaries: { used: 0, limit: 5 },
-    tokens: { used: 0, limit: 50000 },
+    aiMessages: { used: 0, limit: 500 },
+    summaries: { used: 0, limit: 50 },
+    tokens: { used: 0, limit: 2000000 },
     resetTime: new Date(new Date().setHours(24, 0, 0, 0)).toISOString()
   })
 
   const updateUsage = useCallback((headers: Headers) => {
-    const aiMessages = parseInt(headers.get('X-Daily-Remaining-AI-Messages') || '20')
-    const summaries = parseInt(headers.get('X-Daily-Remaining-Summaries') || '5')
-    const tokens = parseInt(headers.get('X-Daily-Remaining-Tokens') || '50000')
+    const aiMessages = parseInt(headers.get('X-Daily-Remaining-AI-Messages') || '500')
+    const summaries = parseInt(headers.get('X-Daily-Remaining-Summaries') || '50')
+    const tokens = parseInt(headers.get('X-Daily-Remaining-Tokens') || '2000000')
     const resetTime = headers.get('X-Daily-Reset')
 
     setUsage(prev => ({
