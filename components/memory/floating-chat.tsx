@@ -19,6 +19,7 @@ import {
 import Image from "next/image"
 import type { StoredSoul } from "@/lib/storage"
 import type { CharacterMemoryProfile } from "@/lib/memory-types"
+import { useWallet } from "@/components/wallet/wallet-provider"
 
 interface Message {
   id: string
@@ -41,6 +42,7 @@ interface AISettings {
 }
 
 export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: FloatingChatProps) {
+  const { address } = useWallet()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -113,7 +115,13 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
         body: JSON.stringify({
           message: userMessage.content,
           nftId: soul.data.pfpId,
-          memoryProfile,
+          memoryProfile: {
+            ...memoryProfile,
+            metadata: {
+              ...memoryProfile.metadata,
+              walletAddress: address // Include wallet address for daily limits
+            }
+          },
           provider: aiSettings.provider,
           model: aiSettings.model,
           enhancedPersonality: aiSettings.enhancedPersonality

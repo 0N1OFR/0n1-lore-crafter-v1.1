@@ -4,6 +4,14 @@ import { NextRequest } from "next/server"
 const chatRequestCounts = new Map<string, { count: number; resetTime: number }>()
 const nonChatRequestCounts = new Map<string, { count: number; resetTime: number }>()
 
+// Daily usage tracking per wallet address
+const dailyUsageCounts = new Map<string, { 
+  aiMessages: number; 
+  summaries: number; 
+  totalTokens: number; 
+  resetTime: number 
+}>()
+
 // Rate limiting configuration
 export const RATE_LIMITS = {
   // Chat endpoints (shared limit across all)
@@ -22,6 +30,13 @@ export const RATE_LIMITS = {
   }
 }
 
+// Daily limits per wallet (cost protection)
+export const DAILY_LIMITS = {
+  ai_messages: 20,      // AI chat messages per wallet per day
+  summaries: 5,         // Summary generations per wallet per day  
+  total_tokens: 50000   // Total tokens consumed per wallet per day
+}
+
 // Extract IP address from request (handles Vercel forwarding)
 export function getClientIP(request: NextRequest): string {
   // Check for forwarded IP (Vercel, Cloudflare, etc.)
@@ -38,6 +53,31 @@ export function getClientIP(request: NextRequest): string {
 
   // Final fallback
   return 'unknown'
+}
+
+// Extract wallet address from request body or query params
+export async function getWalletAddress(request: NextRequest): Promise<string | null> {
+  try {
+    // Try query params first (for ownership verification)
+    const url = new URL(request.url)
+    const addressFromQuery = url.searchParams.get('address')
+    if (addressFromQuery) return addressFromQuery.toLowerCase()
+
+    // Try request body (for AI chat endpoints)
+    const body = await request.json()
+    
+    // Different endpoints may pass wallet address differently
+    if (body.walletAddress) return body.walletAddress.toLowerCase()
+    if (body.address) return body.address.toLowerCase()
+    if (body.nftId && body.characterData?.walletAddress) {
+      return body.characterData.walletAddress.toLowerCase()
+    }
+    
+    return null
+  } catch (error) {
+    // If we can't parse JSON or extract wallet, return null
+    return null
+  }
 }
 
 // Generic rate limiting function
@@ -74,6 +114,81 @@ function checkRateLimit(
     allowed: true, 
     remaining: maxRequests - userRequests.count, 
     resetTime: userRequests.resetTime 
+  }
+}
+
+// Daily usage checking and updating
+export function checkDailyUsage(
+  walletAddress: string,
+  type: 'ai_messages' | 'summaries',
+  tokenCount: number = 0
+): {
+  allowed: boolean
+  remaining: { aiMessages: number; summaries: number; totalTokens: number }
+  resetTime: number
+} {
+  const now = Date.now()
+  const nextMidnight = new Date()
+  nextMidnight.setHours(24, 0, 0, 0) // Next midnight
+  const resetTime = nextMidnight.getTime()
+  
+  const identifier = `daily:${walletAddress}`
+  const userUsage = dailyUsageCounts.get(identifier)
+  
+  // Initialize or reset if past midnight
+  if (!userUsage || now > userUsage.resetTime) {
+    const newUsage = {
+      aiMessages: type === 'ai_messages' ? 1 : 0,
+      summaries: type === 'summaries' ? 1 : 0,
+      totalTokens: tokenCount,
+      resetTime
+    }
+    dailyUsageCounts.set(identifier, newUsage)
+    
+    return {
+      allowed: true,
+      remaining: {
+        aiMessages: DAILY_LIMITS.ai_messages - newUsage.aiMessages,
+        summaries: DAILY_LIMITS.summaries - newUsage.summaries,
+        totalTokens: DAILY_LIMITS.total_tokens - newUsage.totalTokens
+      },
+      resetTime
+    }
+  }
+  
+  // Check limits
+  const newAiMessages = userUsage.aiMessages + (type === 'ai_messages' ? 1 : 0)
+  const newSummaries = userUsage.summaries + (type === 'summaries' ? 1 : 0)
+  const newTotalTokens = userUsage.totalTokens + tokenCount
+  
+  // Check if any limit would be exceeded
+  if (newAiMessages > DAILY_LIMITS.ai_messages ||
+      newSummaries > DAILY_LIMITS.summaries ||
+      newTotalTokens > DAILY_LIMITS.total_tokens) {
+    return {
+      allowed: false,
+      remaining: {
+        aiMessages: Math.max(0, DAILY_LIMITS.ai_messages - userUsage.aiMessages),
+        summaries: Math.max(0, DAILY_LIMITS.summaries - userUsage.summaries),
+        totalTokens: Math.max(0, DAILY_LIMITS.total_tokens - userUsage.totalTokens)
+      },
+      resetTime: userUsage.resetTime
+    }
+  }
+  
+  // Update usage
+  userUsage.aiMessages = newAiMessages
+  userUsage.summaries = newSummaries
+  userUsage.totalTokens = newTotalTokens
+  
+  return {
+    allowed: true,
+    remaining: {
+      aiMessages: DAILY_LIMITS.ai_messages - newAiMessages,
+      summaries: DAILY_LIMITS.summaries - newSummaries,
+      totalTokens: DAILY_LIMITS.total_tokens - newTotalTokens
+    },
+    resetTime: userUsage.resetTime
   }
 }
 
@@ -147,6 +262,23 @@ export function createRateLimitResponse(
   }
 }
 
+// Helper to format daily limit error response
+export function createDailyLimitResponse(
+  remaining: { aiMessages: number; summaries: number; totalTokens: number },
+  resetTime: number,
+  limitType: string
+) {
+  const resetInHours = Math.ceil((resetTime - Date.now()) / (1000 * 60 * 60))
+  
+  return {
+    error: `Daily ${limitType} limit exceeded. Resets in ~${resetInHours} hours at midnight.`,
+    dailyLimits: DAILY_LIMITS,
+    remaining,
+    resetTime: new Date(resetTime).toISOString(),
+    resetInHours
+  }
+}
+
 // Cleanup old entries periodically (prevent memory leaks)
 export function cleanupRateLimitMaps() {
   const now = Date.now()
@@ -162,6 +294,13 @@ export function cleanupRateLimitMaps() {
   for (const [key, value] of nonChatRequestCounts.entries()) {
     if (now > value.resetTime) {
       nonChatRequestCounts.delete(key)
+    }
+  }
+  
+  // Clean daily usage limits
+  for (const [key, value] of dailyUsageCounts.entries()) {
+    if (now > value.resetTime) {
+      dailyUsageCounts.delete(key)
     }
   }
 }

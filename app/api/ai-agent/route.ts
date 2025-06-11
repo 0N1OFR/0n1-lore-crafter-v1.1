@@ -1,6 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
-import { checkChatRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { 
+  checkChatRateLimit, 
+  createRateLimitResponse,
+  checkDailyUsage,
+  createDailyLimitResponse
+} from '@/lib/rate-limit'
 
 // Sleep function for retry delays
 function sleep(ms: number): Promise<void> {
@@ -88,7 +93,7 @@ async function makeAPICallWithRetry(client: OpenAI, params: any, maxRetries = 3)
 
 export async function POST(request: NextRequest) {
   try {
-    // Check rate limit first (shared across all chat endpoints)
+    // Check IP-based rate limit first (shared across all chat endpoints)
     const rateLimitResult = checkChatRateLimit(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
@@ -114,6 +119,7 @@ export async function POST(request: NextRequest) {
       memoryContext = null,
       enhancedPersonality = false,
       responseStyle = "dialogue",
+      walletAddress = null, // Optional wallet address for daily limits
     } = await request.json()
 
     // Debug logging
@@ -125,6 +131,32 @@ export async function POST(request: NextRequest) {
 
     if (!systemPrompt && !memoryContext) {
       return NextResponse.json({ error: "System prompt or memory context is required" }, { status: 400 })
+    }
+
+    // Check daily usage limits per wallet if wallet address is provided
+    if (walletAddress) {
+      // Estimate token count for agent response (typically longer than assistant)
+      const messageTokens = messages.reduce((acc: number, msg: any) => acc + Math.ceil(msg.content.length / 4), 0)
+      const estimatedTokens = messageTokens + Math.ceil(maxTokens / 2) // Input + estimated response
+      
+      const dailyUsageResult = checkDailyUsage(walletAddress, 'ai_messages', estimatedTokens)
+      if (!dailyUsageResult.allowed) {
+        return NextResponse.json(
+          createDailyLimitResponse(dailyUsageResult.remaining, dailyUsageResult.resetTime, "AI agent"),
+          { 
+            status: 429,
+            headers: {
+              'X-Daily-Limit-AI-Messages': '20',
+              'X-Daily-Limit-Summaries': '5',
+              'X-Daily-Limit-Tokens': '50000',
+              'X-Daily-Remaining-AI-Messages': dailyUsageResult.remaining.aiMessages.toString(),
+              'X-Daily-Remaining-Summaries': dailyUsageResult.remaining.summaries.toString(),
+              'X-Daily-Remaining-Tokens': dailyUsageResult.remaining.totalTokens.toString(),
+              'X-Daily-Reset': new Date(dailyUsageResult.resetTime).toISOString()
+            }
+          }
+        )
+      }
     }
 
     // Check which API to use
@@ -217,7 +249,19 @@ Create a rich, immersive scene with detailed descriptions:
     // Make API call with retry logic
     const response = await makeAPICallWithRetry(client, completionParams)
 
-    return NextResponse.json({ message: response.choices[0].message.content })
+    // Return successful response with usage information
+    const responseHeaders: Record<string, string> = {}
+    if (walletAddress) {
+      // Get updated usage info after processing (don't increment again, just get current state)
+      const currentUsage = checkDailyUsage(walletAddress, 'ai_messages', 0)
+      if (currentUsage.allowed) {
+        responseHeaders['X-Daily-Remaining-AI-Messages'] = currentUsage.remaining.aiMessages.toString()
+        responseHeaders['X-Daily-Remaining-Summaries'] = currentUsage.remaining.summaries.toString()
+        responseHeaders['X-Daily-Remaining-Tokens'] = currentUsage.remaining.totalTokens.toString()
+      }
+    }
+
+    return NextResponse.json({ message: response.choices[0].message.content }, { headers: responseHeaders })
   } catch (error: any) {
     console.error("AI Agent API Error:", error)
     

@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import type { CharacterData } from "@/lib/types"
 import { generateEnhancedSystemPrompt } from "@/lib/ai/prompt-engineering"
-import { checkChatRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { 
+  checkChatRateLimit, 
+  createRateLimitResponse,
+  checkDailyUsage,
+  createDailyLimitResponse
+} from '@/lib/rate-limit'
 
 // Initialize OpenAI client with error handling
 let openai: OpenAI | null = null
@@ -17,7 +22,7 @@ try {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check rate limit first (shared across all chat endpoints)
+    // Check IP-based rate limit first (shared across all chat endpoints)
     const rateLimitResult = checkChatRateLimit(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
@@ -51,12 +56,14 @@ export async function POST(request: NextRequest) {
     let characterData: CharacterData
     let currentStep: string
     let subStep: string | null = null
+    let walletAddress: string | null = null
 
     try {
       const body = await request.json()
       characterData = body.characterData
       currentStep = body.currentStep
       subStep = body.subStep || null
+      walletAddress = body.walletAddress || null // Optional wallet address
 
       if (!characterData || !currentStep) {
         throw new Error("Missing required fields")
@@ -71,6 +78,37 @@ export async function POST(request: NextRequest) {
         },
         { status: 200 },
       )
+    }
+
+    // Check daily usage limits per wallet if wallet address is available
+    if (walletAddress) {
+      // AI assistant suggestions are lighter than full chat responses
+      const estimatedTokens = Math.ceil(300 / 4) // Estimated tokens for AI assistant response
+      
+      const dailyUsageResult = checkDailyUsage(walletAddress, 'ai_messages', estimatedTokens)
+      if (!dailyUsageResult.allowed) {
+        // Return fallback suggestions with rate limit info
+        return NextResponse.json(
+          {
+            error: "Daily AI usage limit exceeded",
+            fallback: true,
+            suggestions: getMockSuggestions(currentStep, subStep),
+            dailyLimitInfo: createDailyLimitResponse(dailyUsageResult.remaining, dailyUsageResult.resetTime, "AI assistant")
+          },
+          { 
+            status: 200, // Return 200 with fallback instead of 429 to maintain UX
+            headers: {
+              'X-Daily-Limit-AI-Messages': '20',
+              'X-Daily-Limit-Summaries': '5',
+              'X-Daily-Limit-Tokens': '50000',
+              'X-Daily-Remaining-AI-Messages': dailyUsageResult.remaining.aiMessages.toString(),
+              'X-Daily-Remaining-Summaries': dailyUsageResult.remaining.summaries.toString(),
+              'X-Daily-Remaining-Tokens': dailyUsageResult.remaining.totalTokens.toString(),
+              'X-Daily-Reset': new Date(dailyUsageResult.resetTime).toISOString()
+            }
+          }
+        )
+      }
     }
 
     // Generate enhanced system prompt
@@ -110,7 +148,18 @@ export async function POST(request: NextRequest) {
       // Remove any asterisk formatting from suggestions
       const cleanSuggestions = suggestions.map(suggestion => removeAsteriskFormatting(suggestion))
 
-      return NextResponse.json({ suggestions: cleanSuggestions })
+      // Add usage info to response headers
+      const responseHeaders: Record<string, string> = {}
+      if (walletAddress) {
+        const currentUsage = checkDailyUsage(walletAddress, 'ai_messages', 0)
+        if (currentUsage.allowed) {
+          responseHeaders['X-Daily-Remaining-AI-Messages'] = currentUsage.remaining.aiMessages.toString()
+          responseHeaders['X-Daily-Remaining-Summaries'] = currentUsage.remaining.summaries.toString()
+          responseHeaders['X-Daily-Remaining-Tokens'] = currentUsage.remaining.totalTokens.toString()
+        }
+      }
+
+      return NextResponse.json({ suggestions: cleanSuggestions }, { headers: responseHeaders })
     } catch (error) {
       console.error("Error calling OpenAI API:", error)
       return NextResponse.json(

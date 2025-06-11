@@ -732,6 +732,7 @@ export default function AgentPage() {
           maxTokens: agentConfig.maxTokens,
           enhancedPersonality: enhancedPersonality,
           responseStyle: responseStyle,
+          walletAddress: address, // Include wallet address for daily limits
         }),
       })
 

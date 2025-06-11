@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import type { CharacterMemoryProfile } from '@/lib/memory-types'
-import { checkChatRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { 
+  checkChatRateLimit, 
+  createRateLimitResponse,
+  checkDailyUsage,
+  createDailyLimitResponse
+} from '@/lib/rate-limit'
 
 // Sleep function for retry delays
 function sleep(ms: number): Promise<void> {
@@ -97,7 +102,7 @@ interface ChatRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check rate limit first (shared across all chat endpoints)
+    // Check IP-based rate limit first (shared across all chat endpoints)
     const rateLimitResult = checkChatRateLimit(request)
     if (!rateLimitResult.allowed) {
       return NextResponse.json(
@@ -121,6 +126,32 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required fields' },
         { status: 400 }
       )
+    }
+
+    // Check daily usage limits per wallet if wallet address is available
+    const walletAddress = memoryProfile.metadata?.walletAddress
+    if (walletAddress) {
+      // Estimate token count (rough approximation: 1 token ≈ 4 characters)
+      const estimatedTokens = Math.ceil((message.length + 500) / 4) // Message + expected response
+      
+      const dailyUsageResult = checkDailyUsage(walletAddress, 'ai_messages', estimatedTokens)
+      if (!dailyUsageResult.allowed) {
+        return NextResponse.json(
+          createDailyLimitResponse(dailyUsageResult.remaining, dailyUsageResult.resetTime, "AI chat"),
+          { 
+            status: 429,
+            headers: {
+              'X-Daily-Limit-AI-Messages': '20',
+              'X-Daily-Limit-Summaries': '5', 
+              'X-Daily-Limit-Tokens': '50000',
+              'X-Daily-Remaining-AI-Messages': dailyUsageResult.remaining.aiMessages.toString(),
+              'X-Daily-Remaining-Summaries': dailyUsageResult.remaining.summaries.toString(),
+              'X-Daily-Remaining-Tokens': dailyUsageResult.remaining.totalTokens.toString(),
+              'X-Daily-Reset': new Date(dailyUsageResult.resetTime).toISOString()
+            }
+          }
+        )
+      }
     }
 
     // Check API key availability based on model
@@ -159,7 +190,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ response })
+    // Return successful response with usage information
+    const responseHeaders: Record<string, string> = {}
+    if (walletAddress) {
+      // Get updated usage info after processing (don't increment again, just get current state)
+      const currentUsage = checkDailyUsage(walletAddress, 'ai_messages', 0)
+      if (currentUsage.allowed) { // Only add headers if we haven't hit limits
+        responseHeaders['X-Daily-Remaining-AI-Messages'] = currentUsage.remaining.aiMessages.toString()
+        responseHeaders['X-Daily-Remaining-Summaries'] = currentUsage.remaining.summaries.toString()
+        responseHeaders['X-Daily-Remaining-Tokens'] = currentUsage.remaining.totalTokens.toString()
+      }
+    }
+
+    return NextResponse.json({ response }, { headers: responseHeaders })
 
   } catch (error: any) {
     console.error('AI Chat error:', error)
