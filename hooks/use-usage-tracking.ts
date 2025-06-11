@@ -25,6 +25,7 @@ export function useUsageTracking(): UsageTrackingHook {
     aiMessages: { used: 0, limit: 20 },
     summaries: { used: 0, limit: 5 },
     tokens: { used: 0, limit: 50000 },
+    resetTime: new Date(new Date().setHours(24, 0, 0, 0)).toISOString()
   })
 
   const updateUsage = useCallback((headers: Headers) => {

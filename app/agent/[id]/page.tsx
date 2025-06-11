@@ -1047,8 +1047,8 @@ export default function AgentPage() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto p-4 min-h-screen flex flex-col">
-        {/* Minimal Character Info */}
-        <div className="mb-4">
+        {/* Character Info & Usage Tracking */}
+        <div className="mb-4 space-y-3">
           <Card className="border border-purple-500/30 bg-black/60 backdrop-blur-sm">
             <CardContent className="p-4">
               <div className="flex justify-between items-center">
@@ -1075,28 +1075,29 @@ export default function AgentPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        {/* Usage Indicator and Smart Warnings */}
-        <div className="mb-4 space-y-3">
+          {/* Usage Indicator - Primary Display */}
           {address && (
             <UsageIndicator 
               usage={usage} 
-              compact={true}
-              className="bg-black/60 backdrop-blur-sm border border-purple-500/30 rounded-lg p-3"
+              compact={false}
+              showWarnings={true}
+              className=""
             />
           )}
-          
-          {/* Smart Warning */}
-          {getWarningMessage() && (
+        </div>
+
+        {/* Additional Smart Warnings (if not already shown in Usage Indicator) */}
+        {getWarningMessage() && !address && (
+          <div className="mb-4">
             <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
               <div className="flex items-center gap-2 text-yellow-300 text-sm">
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                 <span>{getWarningMessage()}</span>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Enhanced Error Message */}
         {error && (
