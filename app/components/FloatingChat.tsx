@@ -178,6 +178,14 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
             setError("rate_limit:" + JSON.stringify(data))
           }
         } else {
+          // Check if the server suggests a fallback model
+          if (data.shouldAutoSwitch && data.fallbackModel) {
+            console.log(`Auto-switching to fallback model: ${data.fallbackModel}`)
+            setAiSettings(prev => ({ ...prev, model: data.fallbackModel }))
+            // Don't set error yet, let user try with the new model
+            setError(null)
+            return
+          }
           setError("api_error:" + (data.error || "Failed to get AI response"))
         }
         return
@@ -351,7 +359,10 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
                     error={error.replace('api_error:', '')}
                     type="api_error"
                     onRetry={() => setError(null)}
-                    onSwitchModel={() => setAiSettings(prev => ({ ...prev, model: 'llama-3.1-70b' }))}
+                    onSwitchModel={() => {
+                      setAiSettings(prev => ({ ...prev, model: 'llama-3.1-70b' }))
+                      setError(null) // Clear error after switching
+                    }}
                     className="text-xs"
                   />
                 ) : (

@@ -9,6 +9,7 @@ import {
 } from '@/lib/rate-limit'
 import { verifyAuthToken } from '@/lib/auth-middleware'
 import { validateAIChat } from '@/lib/validation'
+import { createFallbackError, getFallbackModel } from '@/lib/ai-fallback'
 
 // Sleep function for retry delays
 function sleep(ms: number): Promise<void> {
@@ -224,19 +225,16 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('AI Chat error:', error)
     
-    // Provide helpful error messages based on error type
-    let errorMessage = error.message || "Failed to get AI response"
-    
-    if (error.message?.includes('Rate limit exceeded')) {
-      errorMessage = "OpenAI rate limit exceeded. Try using a Llama model (they have higher limits) or wait a few minutes."
-    } else if (error.message?.includes('insufficient_quota')) {
-      errorMessage = "OpenAI quota exceeded. Try using a Llama model (they're free) or check your OpenAI billing."
-    } else if (error.message?.includes('Authentication failed')) {
-      errorMessage = "API key authentication failed. Please check your configuration."
-    }
+    // Create enhanced error with fallback suggestions
+    const fallbackInfo = createFallbackError(error.message || "Failed to get AI response", 'gpt-4o')
     
     return NextResponse.json(
-      { error: errorMessage },
+      { 
+        error: fallbackInfo.error,
+        fallbackModel: fallbackInfo.fallbackModel,
+        shouldAutoSwitch: fallbackInfo.shouldAutoSwitch,
+        originalError: error.message
+      },
       { status: 500 }
     )
   }
