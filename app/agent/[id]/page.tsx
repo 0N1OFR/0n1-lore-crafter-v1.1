@@ -1077,14 +1077,12 @@ export default function AgentPage() {
           </Card>
 
           {/* Usage Indicator - Primary Display */}
-          {address && (
-            <UsageIndicator 
-              usage={usage} 
-              compact={false}
-              showWarnings={true}
-              className=""
-            />
-          )}
+          <UsageIndicator 
+            usage={usage} 
+            compact={false}
+            showWarnings={true}
+            className=""
+          />
         </div>
 
         {/* Additional Smart Warnings (if not already shown in Usage Indicator) */}
