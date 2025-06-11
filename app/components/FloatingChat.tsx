@@ -143,6 +143,13 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
     setIsLoading(true)
 
     try {
+      // Debug logging
+      console.log('=== AI CHAT DEBUG ===')
+      console.log('Address:', address)
+      console.log('Auth token:', localStorage.getItem('authToken') ? 'Present' : 'Missing')
+      console.log('AI Settings:', aiSettings)
+      console.log('Sending request to /api/ai-chat...')
+
       const response = await api.post('/api/ai-chat', {
         message: userMessage.content,
         nftId: soul.data.pfpId,
@@ -159,12 +166,17 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
         responseStyle: aiSettings.responseStyle
       })
 
+      console.log('Response status:', response.status)
+      console.log('Response headers:', response.headers)
+
       // Update usage tracking from response headers
       updateUsage(response.headers)
 
       const data = await response.json()
+      console.log('Response data:', data)
 
       if (!response.ok) {
+        console.log('API call failed with status:', response.status)
         // Handle specific error types
         if (response.status === 429) {
           if (data.dailyLimits) {
@@ -181,6 +193,7 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
             setError(null)
             return
           }
+          console.log('Setting API error:', data.error)
           setError("api_error:" + (data.error || "Failed to get AI response"))
         }
         return
@@ -216,6 +229,7 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
 
     } catch (error) {
       console.error("Error sending message:", error)
+      console.log('Caught error in sendMessage:', error)
       
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
