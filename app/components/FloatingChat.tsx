@@ -20,6 +20,9 @@ import Image from "next/image"
 import type { StoredSoul } from "@/lib/storage"
 import type { CharacterMemoryProfile } from "@/lib/memory-types"
 import { useWallet } from "@/components/wallet/wallet-provider"
+import { UsageIndicator } from "@/components/ui/usage-indicator"
+import { ErrorMessage } from "@/components/ui/error-message"
+import { useUsageTracking } from "@/hooks/use-usage-tracking"
 
 interface Message {
   id: string
@@ -49,6 +52,7 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
   const [isLoading, setIsLoading] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [aiSettings, setAiSettings] = useState<AISettings>({
     provider: 'openai',
     model: 'gpt-4o',
@@ -56,6 +60,9 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
     responseStyle: 'dialogue'
   })
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  // Usage tracking
+  const { usage, updateUsage, canUseFeature, getWarningMessage } = useUsageTracking()
 
   useEffect(() => {
     // Load existing messages from memory profile
@@ -97,6 +104,14 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return
+    
+    // Check usage limits before sending
+    if (!canUseFeature('messages')) {
+      setError("daily_limit:Daily message limit reached")
+      return
+    }
+    
+    setError(null) // Clear any previous errors
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -132,10 +147,23 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
         })
       })
 
+      // Update usage tracking from response headers
+      updateUsage(response.headers)
+
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to get AI response')
+        // Handle specific error types
+        if (response.status === 429) {
+          if (data.dailyLimits) {
+            setError("daily_limit:" + JSON.stringify(data))
+          } else {
+            setError("rate_limit:" + JSON.stringify(data))
+          }
+        } else {
+          setError("api_error:" + (data.error || "Failed to get AI response"))
+        }
+        return
       }
 
       const assistantMessage: Message = {
@@ -256,6 +284,70 @@ export function FloatingChat({ soul, memoryProfile, onClose, onUpdateMemory }: F
 
         {!isMinimized && (
           <CardContent className="pt-0">
+            {/* Usage Indicator */}
+            {address && (
+              <div className="mb-3">
+                <UsageIndicator 
+                  usage={usage} 
+                  compact={true}
+                  className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-2"
+                />
+              </div>
+            )}
+
+            {/* Smart Warning */}
+            {getWarningMessage() && (
+              <div className="mb-3 p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                <div className="flex items-center gap-2 text-yellow-300 text-xs">
+                  <span>⚠️</span>
+                  <span>{getWarningMessage()}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Enhanced Error Message */}
+            {error && (
+              <div className="mb-3">
+                {error.startsWith('daily_limit:') ? (
+                  <ErrorMessage
+                    error="Daily usage limit exceeded"
+                    type="daily_limit"
+                    resetTime={new Date(new Date().setHours(24, 0, 0, 0)).toISOString()}
+                    remaining={{
+                      aiMessages: usage.aiMessages.limit - usage.aiMessages.used,
+                      summaries: usage.summaries.limit - usage.summaries.used,
+                      tokens: usage.tokens.limit - usage.tokens.used
+                    }}
+                    onSwitchModel={() => setAiSettings(prev => ({ ...prev, model: 'llama-3.1-70b' }))}
+                    onRetry={() => setError(null)}
+                    className="text-xs"
+                  />
+                ) : error.startsWith('rate_limit:') ? (
+                  <ErrorMessage
+                    error="You're sending messages too quickly"
+                    type="rate_limit"
+                    onRetry={() => setError(null)}
+                    className="text-xs"
+                  />
+                ) : error.startsWith('api_error:') ? (
+                  <ErrorMessage
+                    error={error.replace('api_error:', '')}
+                    type="api_error"
+                    onRetry={() => setError(null)}
+                    onSwitchModel={() => setAiSettings(prev => ({ ...prev, model: 'llama-3.1-70b' }))}
+                    className="text-xs"
+                  />
+                ) : (
+                  <ErrorMessage
+                    error={error}
+                    type="general"
+                    onRetry={() => setError(null)}
+                    className="text-xs"
+                  />
+                )}
+              </div>
+            )}
+
             {/* AI Settings */}
             {showSettings && (
               <div className="mb-4 p-4 rounded-lg bg-purple-900/20 border border-purple-500/30">

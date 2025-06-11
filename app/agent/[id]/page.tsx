@@ -49,7 +49,7 @@ import { ContextExplorer } from "@/components/context-explorer"
 import { UnifiedSoulHeader } from "@/components/unified-soul-header"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Loader2 } from "lucide-react"
+import { Loader2, AlertTriangle } from "lucide-react"
 import { generatePreviewText, getPreviewTextColor } from "@/lib/preview-text-generator"
 import {
   CharacterMemoryProfile,
@@ -73,6 +73,11 @@ import { archiveChat, getArchivedChats, type ArchivedChat } from "@/lib/chat-arc
 // Wallet and ownership verification
 import { useWallet } from "@/components/wallet/wallet-provider"
 import { verifyNftOwnership, createOwnershipError } from "@/lib/ownership"
+
+// Usage tracking and UX improvements
+import { UsageIndicator } from "@/components/ui/usage-indicator"
+import { ErrorMessage } from "@/components/ui/error-message"
+import { useUsageTracking } from "@/hooks/use-usage-tracking"
 
 // Enhanced message interface to support memory features
 interface Message {
@@ -138,6 +143,9 @@ export default function AgentPage() {
 
   // Ownership verification state
   const [ownershipVerified, setOwnershipVerified] = useState<boolean | null>(null)
+  
+  // Usage tracking
+  const { usage, updateUsage, isNearLimit, getWarningMessage, canUseFeature } = useUsageTracking()
 
   // Load saved memory segments on mount
   useEffect(() => {
@@ -667,6 +675,12 @@ export default function AgentPage() {
 
   const sendMessage = async () => {
     if (!input.trim() || !agentConfig || isLoading || !memory || ownershipVerified !== true) return
+    
+    // Check usage limits before sending
+    if (!canUseFeature('messages')) {
+      setError("Daily message limit reached. Try again tomorrow or switch to Llama models.")
+      return
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -736,9 +750,23 @@ export default function AgentPage() {
         }),
       })
 
+      // Update usage tracking from response headers
+      updateUsage(response.headers)
+
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to get response")
+        
+        // Handle specific error types
+        if (response.status === 429) {
+          if (errorData.dailyLimits) {
+            setError("daily_limit:" + JSON.stringify(errorData))
+          } else {
+            setError("rate_limit:" + JSON.stringify(errorData))
+          }
+        } else {
+          setError("api_error:" + (errorData.error || "Failed to get response"))
+        }
+        return
       }
 
       const data = await response.json()
@@ -1049,11 +1077,63 @@ export default function AgentPage() {
           </Card>
         </div>
 
-        {/* Error Message */}
+        {/* Usage Indicator and Smart Warnings */}
+        <div className="mb-4 space-y-3">
+          {address && (
+            <UsageIndicator 
+              usage={usage} 
+              compact={true}
+              className="bg-black/60 backdrop-blur-sm border border-purple-500/30 rounded-lg p-3"
+            />
+          )}
+          
+          {/* Smart Warning */}
+          {getWarningMessage() && (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-yellow-300 text-sm">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <span>{getWarningMessage()}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Enhanced Error Message */}
         {error && (
-          <div className="bg-red-900/20 border border-red-500/50 rounded-md p-3 mb-4 text-red-200 text-sm">
-            <p className="font-semibold">Error:</p>
-            <p>{error}</p>
+          <div className="mb-4">
+            {error.startsWith('daily_limit:') ? (
+              <ErrorMessage
+                error="Daily usage limit exceeded"
+                type="daily_limit"
+                resetTime={new Date(new Date().setHours(24, 0, 0, 0)).toISOString()}
+                remaining={{
+                  aiMessages: usage.aiMessages.limit - usage.aiMessages.used,
+                  summaries: usage.summaries.limit - usage.summaries.used,
+                  tokens: usage.tokens.limit - usage.tokens.used
+                }}
+                onSwitchModel={() => setModelWithSave('llama-3.1-70b')}
+                onRetry={() => setError(null)}
+              />
+            ) : error.startsWith('rate_limit:') ? (
+              <ErrorMessage
+                error="You're sending messages too quickly"
+                type="rate_limit"
+                onRetry={() => setError(null)}
+              />
+            ) : error.startsWith('api_error:') ? (
+              <ErrorMessage
+                error={error.replace('api_error:', '')}
+                type="api_error"
+                onRetry={() => setError(null)}
+                onSwitchModel={() => setModelWithSave('llama-3.1-70b')}
+              />
+            ) : (
+              <ErrorMessage
+                error={error}
+                type="general"
+                onRetry={() => setError(null)}
+              />
+            )}
           </div>
         )}
 
