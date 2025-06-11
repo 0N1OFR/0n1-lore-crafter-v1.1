@@ -50,7 +50,6 @@ import { UnifiedSoulHeader } from "@/components/unified-soul-header"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Loader2, AlertTriangle } from "lucide-react"
-import { generatePreviewText, getPreviewTextColor } from "@/lib/preview-text-generator"
 import {
   CharacterMemoryProfile,
   getMemoryProfile,
@@ -1049,8 +1048,8 @@ export default function AgentPage() {
       <div className="max-w-4xl mx-auto p-4 min-h-screen flex flex-col">
         {/* Character Info & Usage Tracking */}
         <div className="mb-4 space-y-3">
-          {/* DEPLOYMENT VERIFICATION - BUILD: 2024-12-28-15:30 */}
-          <div className="text-xs text-gray-500 text-center">Build: 2024-12-28-15:30 UTC</div>
+          {/* NO CHARACTER SUMMARIES OR "THE HERO" SECTIONS SHOULD APPEAR HERE */}
+          {/* CACHE VERSION: v2.1 - Character summaries removed */}
           
           <Card className="border border-purple-500/30 bg-black/60 backdrop-blur-sm">
             <CardContent className="p-4">
