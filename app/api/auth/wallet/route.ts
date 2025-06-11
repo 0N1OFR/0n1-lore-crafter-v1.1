@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
         { 
           status: 429,
           headers: {
-            'X-RateLimit-Limit': '20',
+            'X-RateLimit-Limit': '200',
             'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
             'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
           }

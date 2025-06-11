@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         { 
           status: 429,
           headers: {
-            'X-RateLimit-Limit': '20',
+            'X-RateLimit-Limit': '200',
             'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
             'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
             'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
@@ -80,9 +80,9 @@ export async function POST(request: NextRequest) {
         { 
           status: 429,
           headers: {
-            'X-Daily-Limit-AI-Messages': '20',
-            'X-Daily-Limit-Summaries': '5',
-            'X-Daily-Limit-Tokens': '50000',
+            'X-Daily-Limit-AI-Messages': '500',
+            'X-Daily-Limit-Summaries': '50',
+            'X-Daily-Limit-Tokens': '2000000',
             'X-Daily-Remaining-AI-Messages': dailyUsageResult.remaining.aiMessages.toString(),
             'X-Daily-Remaining-Summaries': dailyUsageResult.remaining.summaries.toString(),
             'X-Daily-Remaining-Tokens': dailyUsageResult.remaining.totalTokens.toString(),

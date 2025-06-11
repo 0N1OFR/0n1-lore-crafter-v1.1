@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       { 
         status: 429,
         headers: {
-          'X-RateLimit-Limit': '30',
+          'X-RateLimit-Limit': '100',
           'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
           'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
           'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()

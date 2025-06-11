@@ -16,25 +16,25 @@ const dailyUsageCounts = new Map<string, {
 export const RATE_LIMITS = {
   // Chat endpoints (shared limit across all)
   CHAT_ENDPOINTS: {
-    requests: 20,        // Total chat messages per minute per IP
+    requests: 200,       // Increased from 20 to 200 chat messages per minute per IP
     window: 60 * 1000   // 1 minute window
   },
   // Non-chat endpoints (separate limits)
   OPENSEA_ENDPOINTS: {
-    requests: 30,        // OpenSea API calls per minute per IP
+    requests: 100,       // Increased from 30 to 100 OpenSea API calls per minute per IP
     window: 60 * 1000   // 1 minute window
   },
   OWNERSHIP_ENDPOINTS: {
-    requests: 30,        // Ownership verification per minute per IP
+    requests: 100,       // Increased from 30 to 100 ownership verification per minute per IP
     window: 60 * 1000   // 1 minute window
   }
 }
 
 // Daily limits per wallet (cost protection)
 export const DAILY_LIMITS = {
-  ai_messages: 20,      // AI chat messages per wallet per day
-  summaries: 5,         // Summary generations per wallet per day  
-  total_tokens: 50000   // Total tokens consumed per wallet per day
+  ai_messages: 500,     // Increased from 20 to 500 AI chat messages per wallet per day
+  summaries: 50,        // Increased from 5 to 50 summary generations per wallet per day  
+  total_tokens: 2000000 // Increased from 50,000 to 2,000,000 total tokens per wallet per day
 }
 
 // Extract IP address from request (handles Vercel forwarding)
