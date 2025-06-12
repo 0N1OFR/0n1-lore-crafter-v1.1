@@ -1,11 +1,32 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkOwnershipRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
 import { COLLECTIONS, CollectionKey } from '@/lib/collection-config'
+import { withOptionalAuth, getRequestWalletAddress } from '@/lib/auth-middleware'
 
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY
 
-export async function GET(request: NextRequest) {
-  // Check rate limit first
+export const GET = withOptionalAuth(async (request: NextRequest, sessionInfo) => {
+  // Get wallet address from authentication (secure) or legacy parameter (backward compatibility)
+  const walletAddress = await getRequestWalletAddress(request, sessionInfo)
+  const { searchParams } = new URL(request.url)
+  const tokenId = searchParams.get("tokenId")
+
+  // Input validation
+  if (!walletAddress || !tokenId) {
+    return NextResponse.json(
+      { 
+        error: !walletAddress ? "Authentication required or address parameter missing" : "TokenId parameter is required",
+        message: !walletAddress ? "Please authenticate with your wallet or provide a valid address parameter" : "TokenId is required for ownership verification",
+        authenticationUrl: !walletAddress ? '/api/auth/challenge' : undefined
+      }, 
+      { status: 400 }
+    )
+  }
+
+  console.log(`🔐 Ownership verification - Authentication status: ${sessionInfo.isAuthenticated ? 'AUTHENTICATED' : 'LEGACY_MODE'}`)
+  console.log(`🔍 Verifying ownership for wallet: ${walletAddress}, tokenId: ${tokenId}`)
+
+  // Check rate limit after authentication
   const rateLimitResult = checkOwnershipRateLimit(request)
   if (!rateLimitResult.allowed) {
     return NextResponse.json(
@@ -22,20 +43,8 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const { searchParams } = new URL(request.url)
-  const address = searchParams.get("address")
-  const tokenId = searchParams.get("tokenId")
-
-  // Input validation
-  if (!address || !tokenId) {
-    return NextResponse.json(
-      { error: "Address and tokenId parameters are required" }, 
-      { status: 400 }
-    )
-  }
-
   // Validate Ethereum address format
-  if (!/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+  if (!/^0x[a-fA-F0-9]{40}$/i.test(walletAddress)) {
     return NextResponse.json(
       { error: "Invalid Ethereum address format" }, 
       { status: 400 }
@@ -60,8 +69,8 @@ export async function GET(request: NextRequest) {
   try {
     // Check ownership across both Force and Frame collections
     const [ownsForce, ownsFrame] = await Promise.all([
-      checkOwnershipViaOpenSea(address, tokenId, 'force'),
-      checkOwnershipViaOpenSea(address, tokenId, 'frame')
+      checkOwnershipViaOpenSea(walletAddress, tokenId, 'force'),
+      checkOwnershipViaOpenSea(walletAddress, tokenId, 'frame')
     ])
     
     const owns = ownsForce || ownsFrame
@@ -74,10 +83,12 @@ export async function GET(request: NextRequest) {
       ownedCollections,
       ownsForce,
       ownsFrame,
-      method: "opensea"
+      method: "opensea",
+      authenticated: sessionInfo.isAuthenticated
     }, {
       headers: {
         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600', // Cache for 5 minutes
+        'X-Authenticated': sessionInfo.isAuthenticated.toString()
       },
     })
   } catch (error) {
@@ -87,7 +98,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 async function checkOwnershipViaOpenSea(address: string, tokenId: string, collection: CollectionKey): Promise<boolean> {
   const normalizedTokenId = tokenId.replace(/^0+/, "")

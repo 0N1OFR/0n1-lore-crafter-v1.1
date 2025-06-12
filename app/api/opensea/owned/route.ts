@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { checkOpenSeaRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { checkOpenSeaRateLimitEnhanced, createRateLimitResponse } from '@/lib/rate-limit'
 import { COLLECTIONS, CollectionKey, getAllCollectionKeys } from '@/lib/collection-config'
 import { UnifiedCharacter, UnifiedCharacterResponse } from '@/lib/types'
 import { getAllSouls } from '@/lib/storage'
+import { withOptionalAuth, getRequestWalletAddress } from '@/lib/auth-middleware'
 
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY
 
@@ -91,28 +92,37 @@ function isValidNft(nft: any): boolean {
          nft.image_url.trim() !== ''
 }
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams
-  const address = searchParams.get('address')
+export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
+  console.log(`🚀 UNIFIED CHARACTERS API CALLED: ${new Date().toISOString()}`)
 
-  if (!address) {
-    return NextResponse.json({ error: 'Address parameter is required' }, { status: 400 })
+  // Get wallet address from authentication (secure) or legacy parameter (backward compatibility)
+  const walletAddress = await getRequestWalletAddress(req, sessionInfo)
+
+  if (!walletAddress) {
+    return NextResponse.json({ 
+      error: 'Authentication required',
+      message: 'Please authenticate with your wallet or provide a valid address parameter',
+      authenticationUrl: '/api/auth/challenge'
+    }, { status: 401 })
   }
 
-  console.log(`🚀 UNIFIED CHARACTERS API CALLED: ${new Date().toISOString()}`)
-  console.log(`Fetching unified characters for address ${address}`)
+  console.log(`Fetching unified characters for address ${walletAddress}`)
+  console.log(`🔐 Authentication status: ${sessionInfo.isAuthenticated ? 'AUTHENTICATED' : 'LEGACY_MODE'}`)
 
-  // Check rate limit
-  const rateLimitResult = checkOpenSeaRateLimit(request)
+  // Apply enhanced rate limits for authenticated users
+  const isAuthenticated = sessionInfo.isAuthenticated
+  const rateLimitResult = checkOpenSeaRateLimitEnhanced(req, isAuthenticated)
   if (!rateLimitResult.allowed) {
+    const limit = isAuthenticated ? '100' : '30' // Enhanced limits for authenticated users
     return NextResponse.json(
       createRateLimitResponse(rateLimitResult.remaining, rateLimitResult.resetTime, "OpenSea"),
       { 
         status: 429,
         headers: {
-          'X-RateLimit-Limit': '30',
+          'X-RateLimit-Limit': limit,
           'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
           'X-RateLimit-Reset': rateLimitResult.resetTime.toString(),
+          'X-RateLimit-Authenticated': isAuthenticated.toString(),
           'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000).toString()
         }
       }
@@ -121,7 +131,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // First, fetch Force NFTs (these work reliably)
-    const forceNfts = await fetchCollectionNfts(address, 'force' as CollectionKey)
+    const forceNfts = await fetchCollectionNfts(walletAddress, 'force' as CollectionKey)
 
     // Validate and filter Force NFTs by correct contract addresses
     const validForceNfts = forceNfts.filter(nft => {
@@ -158,7 +168,7 @@ export async function GET(request: NextRequest) {
           
           // Verify the user owns this Frame NFT
           const userOwnsFrame = frameNft.owners?.some((owner: any) => 
-            owner.address?.toLowerCase() === address.toLowerCase()
+            owner.address?.toLowerCase() === walletAddress.toLowerCase()
           )
           
           if (userOwnsFrame) {
@@ -348,4 +358,4 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
   }
-}
+})
