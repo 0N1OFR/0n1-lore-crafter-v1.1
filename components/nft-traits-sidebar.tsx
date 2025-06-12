@@ -14,9 +14,10 @@ interface NftTraitsSidebarProps {
   onClose: () => void
   tokenId: string | null
   imageUrl?: string | null
+  collection?: 'force' | 'frame'
 }
 
-export function NftTraitsSidebar({ isOpen, onClose, tokenId, imageUrl }: NftTraitsSidebarProps) {
+export function NftTraitsSidebar({ isOpen, onClose, tokenId, imageUrl, collection = 'force' }: NftTraitsSidebarProps) {
   const [traits, setTraits] = useState<Trait[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -40,7 +41,7 @@ export function NftTraitsSidebar({ isOpen, onClose, tokenId, imageUrl }: NftTrai
           traits: fetchedTraits,
           imageUrl: fetchedImage,
           isApiData: isFromApi,
-        } = await fetchNftDataWithFallback(normalizedTokenId)
+        } = await fetchNftDataWithFallback(normalizedTokenId, collection)
 
         setTraits(fetchedTraits)
         setFetchedImageUrl(fetchedImage)
@@ -60,10 +61,11 @@ export function NftTraitsSidebar({ isOpen, onClose, tokenId, imageUrl }: NftTrai
     if (isOpen && tokenId) {
       fetchTraits()
     }
-  }, [isOpen, tokenId])
+  }, [isOpen, tokenId, collection])
 
   const normalizedId = tokenId?.replace(/^0+/, "") || ""
-  const openSeaLink = normalizedId ? getOpenSeaNftLink(normalizedId) : ""
+  const collectionName = collection === 'frame' ? 'Frame' : 'Force'
+  const openSeaLink = normalizedId ? getOpenSeaNftLink(normalizedId, collection) : ""
   const displayImageUrl = fetchedImageUrl || imageUrl
 
   return (
@@ -106,7 +108,7 @@ export function NftTraitsSidebar({ isOpen, onClose, tokenId, imageUrl }: NftTrai
                     {displayImageUrl ? (
                       <SafeNftImage
                         src={displayImageUrl}
-                        alt={`0N1 Force #${normalizedId}`}
+                        alt={`${collectionName} #${normalizedId}`}
                         fill
                         className="object-contain"
                       />
@@ -120,7 +122,7 @@ export function NftTraitsSidebar({ isOpen, onClose, tokenId, imageUrl }: NftTrai
 
                 {/* NFT Title */}
                 <div className="text-center">
-                  <h3 className="text-xl font-bold text-white">0N1 Force #{normalizedId}</h3>
+                  <h3 className="text-xl font-bold text-white">{collectionName} #{normalizedId}</h3>
                   <Link
                     href={openSeaLink}
                     target="_blank"

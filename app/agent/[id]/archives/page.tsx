@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { 
   ArrowLeft, 
   Archive, 
@@ -64,6 +65,7 @@ export default function ArchivePage() {
   const [selectedType, setSelectedType] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("date")
   const [archivedChats, setArchivedChats] = useState<ArchivedChat[]>([])
+  const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
     async function loadArchiveData() {
@@ -169,6 +171,10 @@ export default function ArchivePage() {
     }
   }
 
+  const handleSettings = () => {
+    setShowSettings(true)
+  }
+
   const filteredChats = archivedChats.filter(chat => {
     const matchesSearch = chat.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          chat.summary.toLowerCase().includes(searchQuery.toLowerCase())
@@ -248,7 +254,7 @@ export default function ArchivePage() {
       <UnifiedSoulHeader
         soul={soul}
         onExport={handleExportArchive}
-        onSettings={() => {}}
+        onSettings={handleSettings}
         onDelete={() => {}}
       />
 
@@ -453,6 +459,28 @@ export default function ArchivePage() {
           )}
         </div>
       </div>
+
+      {/* Settings Dialog */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="border border-purple-500/30 bg-black/90 backdrop-blur-sm">
+          <DialogHeader>
+            <DialogTitle className="text-purple-300">Archive Settings</DialogTitle>
+            <DialogDescription>Customize how your archives are managed and displayed.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-center py-8">
+              <Archive className="h-12 w-12 text-purple-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-purple-300 mb-2">Archive Settings</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Configure how archived conversations are displayed and managed.
+              </p>
+              <p className="text-xs text-purple-400">
+                Archive settings and preferences will be available in a future update.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

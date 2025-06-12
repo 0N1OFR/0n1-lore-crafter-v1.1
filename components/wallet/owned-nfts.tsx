@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface OwnedNftsProps {
   onSelectNft: (tokenId: string) => void
-  onShowTraits: (tokenId: string, imageUrl: string | null) => void
+  onShowTraits: (tokenId: string, imageUrl: string | null, collection: string) => void
   selectedNftId?: string | null
   isLoading?: boolean
 }
@@ -74,11 +74,6 @@ export function OwnedNfts({ onSelectNft, onShowTraits, selectedNftId, isLoading:
   const handleEditProfile = (tokenId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     router.push(`/agent/${tokenId}`)
-  }
-
-  const handleImageClick = (tokenId: string, imageUrl: string | null, e: React.MouseEvent) => {
-    e.stopPropagation()
-    onShowTraits(tokenId, imageUrl)
   }
 
   if (!isConnected) {

@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 interface UnifiedCharacterCardProps {
   character: UnifiedCharacter
   onSelectNft: (tokenId: string) => void
-  onShowTraits: (tokenId: string, imageUrl: string | null) => void
+  onShowTraits: (tokenId: string, imageUrl: string | null, collection: string) => void
   onEditProfile: (tokenId: string) => void
   selectedNftId?: string | null
   isLoading?: boolean
@@ -36,7 +36,6 @@ export function UnifiedCharacterCard({
     const result = isViewingFrame && character.hasFrame && character.frameImageUrl 
       ? character.frameImageUrl 
       : character.forceImageUrl
-    console.log(`🖼️ getDisplayImage for ${character.tokenId}: ${isViewingFrame ? 'Frame' : 'Force'} -> ${result}`)
     return result
   }
 
@@ -45,10 +44,8 @@ export function UnifiedCharacterCard({
                         character.forceImageUrl && character.frameImageUrl
 
   const handleFrameToggle = (checked: boolean) => {
-    console.log(`🔄 Frame toggle for ${character.tokenId}: ${checked}`)
     if (canToggleFrame) {
       setIsViewingFrame(checked)
-      console.log(`✅ Updated isViewingFrame to: ${checked}`)
     }
   }
 
@@ -106,7 +103,8 @@ export function UnifiedCharacterCard({
 
   const handleTraitsClick = () => {
     const currentImageUrl = getDisplayImage()
-    onShowTraits(character.tokenId, currentImageUrl)
+    const currentCollection = isViewingFrame && character.hasFrame ? 'frame' : 'force'
+    onShowTraits(character.tokenId, currentImageUrl, currentCollection)
   }
 
   const handleMainAction = () => {
@@ -210,12 +208,12 @@ export function UnifiedCharacterCard({
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
             <Button
               onClick={handleTraitsClick}
               variant="outline"
               size="sm"
-              className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
+              className="w-full border-gray-600 text-gray-300 hover:bg-gray-800"
             >
               <Eye className="w-4 h-4 mr-1" />
               Traits
@@ -225,7 +223,7 @@ export function UnifiedCharacterCard({
               onClick={handleMainAction}
               size="sm"
               disabled={externalLoading && selectedNftId === character.tokenId}
-              className={`flex-1 ${
+              className={`w-full ${
                 (character as any).hasSoul 
                   ? 'bg-green-600 hover:bg-green-700 text-white' 
                   : 'bg-purple-600 hover:bg-purple-700 text-white'

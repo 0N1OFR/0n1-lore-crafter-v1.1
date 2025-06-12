@@ -7,29 +7,30 @@ export const ON1_CONTRACT_ADDRESS = "0x3bf2922f4520a8ba0c2efc3d2a1539678dad5e9d"
 // Simple in-memory cache to prevent duplicate requests
 const requestCache = new Map<string, Promise<{ traits: Trait[]; imageUrl: string | null }>>()
 
-export async function fetchNftData(tokenId: string): Promise<{ traits: Trait[]; imageUrl: string | null }> {
+export async function fetchNftData(tokenId: string, collection: 'force' | 'frame' = 'force'): Promise<{ traits: Trait[]; imageUrl: string | null }> {
   try {
     // Normalize token ID by removing leading zeros
     const normalizedTokenId = tokenId.replace(/^0+/, "")
 
     // Check if we already have a pending request for this token
-    if (requestCache.has(normalizedTokenId)) {
-      console.log(`Using cached request for token ${normalizedTokenId}...`)
-      return await requestCache.get(normalizedTokenId)!
+    const cacheKey = `${normalizedTokenId}-${collection}`
+    if (requestCache.has(cacheKey)) {
+      console.log(`Using cached request for ${collection} token ${normalizedTokenId}...`)
+      return await requestCache.get(cacheKey)!
     }
 
-    console.log(`Fetching NFT data for token ${normalizedTokenId}...`)
+    console.log(`Fetching NFT data for ${collection} token ${normalizedTokenId}...`)
 
     // Create the request promise
     const requestPromise = (async () => {
       try {
         // Use our own API route to avoid exposing the API key in client-side code
-        const response = await fetch(`/api/opensea?tokenId=${normalizedTokenId}`, {
+        const response = await fetch(`/api/opensea?tokenId=${normalizedTokenId}&collection=${collection}`, {
           next: { revalidate: 86400 }, // Cache for 24 hours - NFT metadata rarely changes
         })
 
         if (!response.ok) {
-          console.error(`API error: ${response.status} for token ${normalizedTokenId}`)
+          console.error(`API error: ${response.status} for ${collection} token ${normalizedTokenId}`)
 
           // Try to get more error details
           try {
@@ -43,7 +44,7 @@ export async function fetchNftData(tokenId: string): Promise<{ traits: Trait[]; 
         }
 
         const data = await response.json()
-        console.log(`Received data for token ${normalizedTokenId}:`, data)
+        console.log(`Received data for ${collection} token ${normalizedTokenId}:`, data)
 
         // Extract traits and image URL from the response
         if (data.nft) {
@@ -64,12 +65,12 @@ export async function fetchNftData(tokenId: string): Promise<{ traits: Trait[]; 
         }
       } finally {
         // Remove from cache when request completes
-        requestCache.delete(normalizedTokenId)
+        requestCache.delete(cacheKey)
       }
     })()
 
     // Store the promise in cache
-    requestCache.set(normalizedTokenId, requestPromise)
+    requestCache.set(cacheKey, requestPromise)
     
     return await requestPromise
   } catch (error) {
@@ -79,7 +80,7 @@ export async function fetchNftData(tokenId: string): Promise<{ traits: Trait[]; 
 }
 
 // Update the fetchNftDataWithFallback function to validate the token ID range
-export async function fetchNftDataWithFallback(tokenId: string): Promise<{
+export async function fetchNftDataWithFallback(tokenId: string, collection: 'force' | 'frame' = 'force'): Promise<{
   traits: Trait[]
   imageUrl: string | null
   isApiData: boolean
@@ -90,27 +91,27 @@ export async function fetchNftDataWithFallback(tokenId: string): Promise<{
   // Check if the token ID is within the valid range (1-7777)
   const tokenIdNumber = Number.parseInt(normalizedTokenId, 10)
   if (isNaN(tokenIdNumber) || tokenIdNumber < 1 || tokenIdNumber > 7777) {
-    throw new Error("Please try again and enter a correct 0N1 Force Token ID (1-7777)")
+    throw new Error(`Please try again and enter a correct 0N1 ${collection === 'frame' ? 'Frame' : 'Force'} Token ID (1-7777)`)
   }
 
   try {
-    const { traits, imageUrl } = await fetchNftData(tokenId)
+    const { traits, imageUrl } = await fetchNftData(tokenId, collection)
     if (traits.length > 0) {
-      console.log(`Successfully fetched ${traits.length} traits for token ${tokenId}`)
+      console.log(`Successfully fetched ${traits.length} traits for ${collection} token ${tokenId}`)
       return { traits, imageUrl, isApiData: true }
     }
 
     // If no traits found, try mock data
-    console.log(`No traits found for token ${tokenId}, using mock data`)
-    const mockData = getMockData(tokenId)
+    console.log(`No traits found for ${collection} token ${tokenId}, using mock data`)
+    const mockData = getMockData(tokenId, collection)
     return {
       traits: mockData.traits,
       imageUrl: mockData.imageUrl,
       isApiData: false,
     }
   } catch (error) {
-    console.error(`Falling back to mock data for token ${tokenId}:`, error)
-    const mockData = getMockData(tokenId)
+    console.error(`Falling back to mock data for ${collection} token ${tokenId}:`, error)
+    const mockData = getMockData(tokenId, collection)
     return {
       traits: mockData.traits,
       imageUrl: mockData.imageUrl,
@@ -120,7 +121,7 @@ export async function fetchNftDataWithFallback(tokenId: string): Promise<{
 }
 
 // Update the getMockData function to include image URLs
-function getMockData(tokenId: string): { traits: Trait[]; imageUrl: string | null } {
+function getMockData(tokenId: string, collection: 'force' | 'frame' = 'force'): { traits: Trait[]; imageUrl: string | null } {
   // Normalize token ID by removing leading zeros for mock data lookup
   const normalizedTokenId = tokenId.replace(/^0+/, "")
 
@@ -131,48 +132,65 @@ function getMockData(tokenId: string): { traits: Trait[]; imageUrl: string | nul
 
   // If no predefined mock data, generate generic mock data based on the token ID
   // This ensures any token ID will work even if the API fails
+  const baseTraits = [
+    {
+      trait_type: "Background",
+      value: ["Blazing Temple", "Neon City", "Digital Void", "Cyber District", "Ancient Shrine"][
+        Number.parseInt(normalizedTokenId) % 5
+      ],
+    },
+    {
+      trait_type: "Body",
+      value: [
+        "Citrine",
+        "Jasper",
+        "Azurite",
+        "Type-01",
+        "Obsidian",
+        "Ash",
+        "Water",
+        "Pearlescent",
+        "Kabuki",
+        "Tiger Skin",
+      ][Number.parseInt(normalizedTokenId) % 10],
+    },
+    {
+      trait_type: "Headphones",
+      value: ["Black", "White", "Blue", "Red", "Purple"][Number.parseInt(normalizedTokenId) % 5],
+    },
+    {
+      trait_type: "Clothing",
+      value: ["Battle Armor", "Cyber Jacket", "Neon Suit", "Tech Robes", "Street Gear"][
+        Number.parseInt(normalizedTokenId) % 5
+      ],
+    },
+    {
+      trait_type: "Accessory",
+      value: ["Digital Amulet", "Tech Visor", "Energy Blade", "Spirit Charm", "None"][
+        Number.parseInt(normalizedTokenId) % 5
+      ],
+    },
+  ]
+
+  // Add collection-specific traits for Frame
+  const traits = collection === 'frame' 
+    ? [
+        ...baseTraits,
+        {
+          trait_type: "Frame Type",
+          value: ["Legendary", "Epic", "Rare", "Common"][Number.parseInt(normalizedTokenId) % 4],
+        },
+        {
+          trait_type: "Frame Material",
+          value: ["Titanium", "Carbon Fiber", "Plasma", "Energy"][Number.parseInt(normalizedTokenId) % 4],
+        }
+      ]
+    : baseTraits
+
   return {
-    traits: [
-      {
-        trait_type: "Background",
-        value: ["Blazing Temple", "Neon City", "Digital Void", "Cyber District", "Ancient Shrine"][
-          Number.parseInt(normalizedTokenId) % 5
-        ],
-      },
-      {
-        trait_type: "Body",
-        value: [
-          "Citrine",
-          "Jasper",
-          "Azurite",
-          "Type-01",
-          "Obsidian",
-          "Ash",
-          "Water",
-          "Pearlescent",
-          "Kabuki",
-          "Tiger Skin",
-        ][Number.parseInt(normalizedTokenId) % 10],
-      },
-      {
-        trait_type: "Headphones",
-        value: ["Black", "White", "Blue", "Red", "Purple"][Number.parseInt(normalizedTokenId) % 5],
-      },
-      {
-        trait_type: "Clothing",
-        value: ["Battle Armor", "Cyber Jacket", "Neon Suit", "Tech Robes", "Street Gear"][
-          Number.parseInt(normalizedTokenId) % 5
-        ],
-      },
-      {
-        trait_type: "Accessory",
-        value: ["Digital Amulet", "Tech Visor", "Energy Blade", "Spirit Charm", "None"][
-          Number.parseInt(normalizedTokenId) % 5
-        ],
-      },
-    ],
+    traits,
     // Use a placeholder image for generated data
-    imageUrl: `https://placehold.co/300x300/3a1c71/ffffff?text=0N1+%23${normalizedTokenId}`,
+    imageUrl: `https://placehold.co/300x300/3a1c71/ffffff?text=0N1+${collection === 'frame' ? 'Frame' : 'Force'}+%23${normalizedTokenId}`,
   }
 }
 
@@ -225,8 +243,11 @@ const mockData: Record<string, { traits: Trait[]; imageUrl: string | null }> = {
 }
 
 // Get OpenSea link for a specific NFT
-export function getOpenSeaNftLink(tokenId: string): string {
+export function getOpenSeaNftLink(tokenId: string, collection: 'force' | 'frame' = 'force'): string {
   // Normalize token ID by removing leading zeros
   const normalizedTokenId = tokenId.replace(/^0+/, "")
-  return `https://opensea.io/assets/ethereum/${CONTRACT_ADDRESS}/${normalizedTokenId}`
+  const contractAddress = collection === 'frame' 
+    ? '0x6cfc9ca8da1d69719161ccc0ba4cfa95d336f11d'  // Frame contract
+    : '0x3bf2922f4520a8ba0c2efc3d2a1539678dad5e9d'  // Force contract
+  return `https://opensea.io/assets/ethereum/${contractAddress}/${normalizedTokenId}`
 }
