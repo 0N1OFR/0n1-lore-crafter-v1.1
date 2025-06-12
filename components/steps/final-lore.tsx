@@ -61,7 +61,8 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
     try {
       // Store the soul in Supabase
       const soulData = {
-        data: { ...characterData, soulName }
+        data: { ...characterData, soulName },
+        timestamp: Date.now()
       }
       const success = await saveSoulToStorage(soulData, address)
       if (success) {
@@ -84,7 +85,8 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
     // Save the soul first if not already saved
     if (!isSaved && address) {
       const soulData = {
-        data: { ...characterData, soulName }
+        data: { ...characterData, soulName },
+        timestamp: Date.now()
       }
       await saveSoulToStorage(soulData, address)
     }
