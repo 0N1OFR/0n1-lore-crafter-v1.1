@@ -27,13 +27,13 @@ export default function EditSoulPage() {
 
   useEffect(() => {
     const fetchSoul = async () => {
-      const nftId = params.id as string
+    const nftId = params.id as string
       const collection = searchParams.get('collection') || 'force'
-      if (nftId) {
+    if (nftId) {
         const foundSoul = await getSoul(nftId, collection as 'force' | 'frame')
-        setSoul(foundSoul)
-        setIsLoading(false)
-      }
+      setSoul(foundSoul)
+      setIsLoading(false)
+    }
     }
     fetchSoul()
   }, [params.id, searchParams])

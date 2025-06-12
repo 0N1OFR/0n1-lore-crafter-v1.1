@@ -1,8 +1,89 @@
 import type { CharacterData } from "./types"
 import { supabase, type Soul } from './supabase'
 
-// Soul management functions using Supabase
+// Check if Supabase is properly configured
+function isSupabaseConfigured(): boolean {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  return !!(url && key && url !== 'placeholder' && key !== 'placeholder')
+}
+
+// localStorage fallback functions
+function getFromLocalStorage(key: string): any {
+  if (typeof window === 'undefined') return null
+  try {
+    const item = localStorage.getItem(key)
+    return item ? JSON.parse(item) : null
+  } catch (error) {
+    console.error('Error reading from localStorage:', error)
+    return null
+  }
+}
+
+function saveToLocalStorage(key: string, data: any): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    localStorage.setItem(key, JSON.stringify(data))
+    return true
+  } catch (error) {
+    console.error('Error saving to localStorage:', error)
+    return false
+  }
+}
+
+function removeFromLocalStorage(key: string): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    localStorage.removeItem(key)
+    return true
+  } catch (error) {
+    console.error('Error removing from localStorage:', error)
+    return false
+  }
+}
+
+// Generate localStorage keys
+function getSoulKey(nftId: string, collection: 'force' | 'frame' = 'force'): string {
+  return `soul_${collection}_${nftId}`
+}
+
+function getWalletSoulsKey(walletAddress: string): string {
+  return `wallet_souls_${walletAddress.toLowerCase()}`
+}
+
+// Soul management functions with localStorage fallback
 export async function saveSoul(soulData: any, walletAddress: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) {
+    console.log('📦 Using localStorage: Saving soul locally')
+    // Save to localStorage
+    const key = getSoulKey(soulData.data.pfpId, soulData.data.collection || 'force')
+    const success = saveToLocalStorage(key, {
+      ...soulData,
+      wallet_address: walletAddress.toLowerCase(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    
+    if (success) {
+      // Update wallet's soul list
+      const walletKey = getWalletSoulsKey(walletAddress)
+      const existingSouls = getFromLocalStorage(walletKey) || []
+      const soulIndex = existingSouls.findIndex((s: any) => 
+        s.nft_id === soulData.data.pfpId && s.collection === (soulData.data.collection || 'force')
+      )
+      
+      if (soulIndex >= 0) {
+        existingSouls[soulIndex] = { nft_id: soulData.data.pfpId, collection: soulData.data.collection || 'force' }
+      } else {
+        existingSouls.push({ nft_id: soulData.data.pfpId, collection: soulData.data.collection || 'force' })
+      }
+      
+      saveToLocalStorage(walletKey, existingSouls)
+    }
+    
+    return success
+  }
+  
   try {
     const soul: Omit<Soul, 'id' | 'created_at' | 'updated_at'> = {
       nft_id: soulData.data.pfpId,
@@ -31,6 +112,12 @@ export async function saveSoul(soulData: any, walletAddress: string): Promise<bo
 }
 
 export async function getSoul(nftId: string, collection: 'force' | 'frame' = 'force'): Promise<any | null> {
+  if (!isSupabaseConfigured()) {
+    console.log('📦 Using localStorage: Getting soul locally')
+    const key = getSoulKey(nftId, collection)
+    return getFromLocalStorage(key)
+  }
+  
   try {
     const { data, error } = await supabase
       .from('souls')
@@ -56,6 +143,25 @@ export async function getSoul(nftId: string, collection: 'force' | 'frame' = 'fo
 }
 
 export async function getAllSouls(walletAddress?: string): Promise<any[]> {
+  if (!isSupabaseConfigured()) {
+    console.log('📦 Using localStorage: Getting all souls locally')
+    if (!walletAddress) return []
+    
+    const walletKey = getWalletSoulsKey(walletAddress)
+    const soulList = getFromLocalStorage(walletKey) || []
+    
+    const souls = []
+    for (const soulRef of soulList) {
+      const soulKey = getSoulKey(soulRef.nft_id, soulRef.collection || 'force')
+      const soulData = getFromLocalStorage(soulKey)
+      if (soulData) {
+        souls.push(soulData)
+      }
+    }
+    
+    return souls.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+  }
+  
   try {
     let query = supabase.from('souls').select('*')
     
@@ -78,6 +184,12 @@ export async function getAllSouls(walletAddress?: string): Promise<any[]> {
 }
 
 export async function deleteSoulFromDB(nftId: string, collection: 'force' | 'frame' = 'force'): Promise<boolean> {
+  if (!isSupabaseConfigured()) {
+    console.log('📦 Using localStorage: Deleting soul locally')
+    const key = getSoulKey(nftId, collection)
+    return removeFromLocalStorage(key)
+  }
+  
   try {
     const { error } = await supabase
       .from('souls')
@@ -98,6 +210,12 @@ export async function deleteSoulFromDB(nftId: string, collection: 'force' | 'fra
 }
 
 export async function soulExistsInDB(nftId: string, collection: 'force' | 'frame' = 'force'): Promise<boolean> {
+  if (!isSupabaseConfigured()) {
+    console.log('📦 Using localStorage: Checking soul existence locally')
+    const key = getSoulKey(nftId, collection)
+    return !!getFromLocalStorage(key)
+  }
+  
   try {
     const { data, error } = await supabase
       .from('souls')
@@ -124,6 +242,15 @@ export async function soulExistsInDB(nftId: string, collection: 'force' | 'frame
 
 // NFT Metadata caching functions
 export async function cacheNFTMetadata(nftId: string, collection: 'force' | 'frame', metadata: any): Promise<boolean> {
+  if (!isSupabaseConfigured()) {
+    console.log('📦 Using localStorage: Caching NFT metadata locally')
+    const key = `nft_metadata_${collection}_${nftId}`
+    return saveToLocalStorage(key, {
+      ...metadata,
+      cached_at: new Date().toISOString()
+    })
+  }
+  
   try {
     const { error } = await supabase
       .from('nft_metadata')
@@ -152,6 +279,12 @@ export async function cacheNFTMetadata(nftId: string, collection: 'force' | 'fra
 }
 
 export async function getCachedNFTMetadata(nftId: string, collection: 'force' | 'frame'): Promise<any | null> {
+  if (!isSupabaseConfigured()) {
+    console.log('📦 Using localStorage: Getting cached NFT metadata locally')
+    const key = `nft_metadata_${collection}_${nftId}`
+    return getFromLocalStorage(key)
+  }
+  
   try {
     const { data, error } = await supabase
       .from('nft_metadata')
@@ -222,24 +355,32 @@ export async function characterDataExists(pfpId: string, collection: 'force' | '
   try {
     return await soulExistsInDB(pfpId, collection)
   } catch (error) {
-    console.error("Error checking if character data exists:", error)
+    console.error("Error checking character data existence:", error)
     return false
   }
 }
 
-// Utility functions
 export async function getSoulCount(walletAddress?: string): Promise<number> {
   try {
     const souls = await getAllSouls(walletAddress)
     return souls.length
   } catch (error) {
-    console.error('Error getting soul count:', error)
+    console.error("Error getting soul count:", error)
     return 0
   }
 }
 
-// Add missing function aliases for backward compatibility
-export const getSoulByNftId = getSoul
+// Storage info utility
+export function getStorageInfo(): { type: 'localStorage' | 'supabase', configured: boolean } {
+  const configured = isSupabaseConfigured()
+  return {
+    type: configured ? 'supabase' : 'localStorage',
+    configured
+  }
+}
+
+// Export aliases for backward compatibility
 export const storeSoul = saveSoul
+export const getSoulByNftId = getSoul
 export const soulExistsForNft = soulExistsInDB
 export const getStoredSouls = getAllSouls 

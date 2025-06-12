@@ -7,19 +7,55 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 // Server-side only environment variables
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
+// Check if Supabase is properly configured
+const isConfigured = !!(supabaseUrl && supabaseAnonKey && 
+  supabaseUrl !== 'placeholder' && supabaseAnonKey !== 'placeholder' &&
+  supabaseUrl.startsWith('https://'))
+
 // Validate required environment variables
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase environment variables not found. Supabase functionality will be disabled.')
+if (!isConfigured) {
+  console.warn('Supabase environment variables not found or are placeholders. Supabase functionality will be disabled.')
 }
 
-// Regular client for client-side operations (safe to use in browser)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Create clients only if properly configured
+let supabase: any = null
+let supabaseAdmin: any = null
 
-// Admin client for server-side operations that need elevated permissions
-// This should only be used on the server side
-export const supabaseAdmin = typeof window === 'undefined' && supabaseUrl && supabaseServiceRoleKey
-  ? createClient(supabaseUrl, supabaseServiceRoleKey)
-  : null
+if (isConfigured) {
+  try {
+    // Regular client for client-side operations (safe to use in browser)
+    supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+    // Admin client for server-side operations that need elevated permissions
+    // This should only be used on the server side
+    if (typeof window === 'undefined' && supabaseServiceRoleKey && supabaseServiceRoleKey !== 'placeholder') {
+      supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
+    }
+  } catch (error) {
+    console.error('Error creating Supabase clients:', error)
+    supabase = null
+    supabaseAdmin = null
+  }
+} else {
+  // Create mock clients that will gracefully fail
+  const mockClient = {
+    from: () => ({
+      select: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
+      insert: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
+      upsert: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
+      update: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
+      delete: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
+      eq: function() { return this },
+      single: function() { return this },
+      order: function() { return this }
+    })
+  }
+  
+  supabase = mockClient
+  supabaseAdmin = mockClient
+}
+
+export { supabase, supabaseAdmin }
 
 // Database types for TypeScript support
 export interface Database {
@@ -256,4 +292,9 @@ export interface NFTMetadata {
   traits: Record<string, any>
   contract_address: string
   cached_at: string
+}
+
+// Utility function to check if Supabase is configured
+export function isSupabaseConfigured(): boolean {
+  return isConfigured
 } 

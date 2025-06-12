@@ -17,12 +17,12 @@ export default function PersonalityPage() {
 
   useEffect(() => {
     const fetchSoul = async () => {
-      const nftId = params.id as string
-      if (nftId) {
+    const nftId = params.id as string
+    if (nftId) {
         const foundSoul = await getSoul(nftId)
-        setSoul(foundSoul)
-      }
-      setIsLoading(false)
+      setSoul(foundSoul)
+    }
+    setIsLoading(false)
     }
     fetchSoul()
   }, [params.id])

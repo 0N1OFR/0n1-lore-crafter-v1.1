@@ -57,8 +57,8 @@ export async function POST(request: NextRequest) {
 
     // For bulk migration, we would need to implement localStorage reading
     // For now, return an error since we can't access localStorage server-side
-    return NextResponse.json({
-      success: false,
+      return NextResponse.json({
+        success: false,
       error: "Bulk migration not supported server-side. Please migrate characters individually from the client."
     }, { status: 400 })
 

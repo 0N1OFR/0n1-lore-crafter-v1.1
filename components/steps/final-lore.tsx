@@ -66,11 +66,11 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
       }
       const success = await saveSoulToStorage(soulData, address)
       if (success) {
-        setIsSaved(true)
-        // Show success state for 2 seconds
-        setTimeout(() => {
-          setIsSaved(false)
-        }, 2000)
+      setIsSaved(true)
+      // Show success state for 2 seconds
+      setTimeout(() => {
+        setIsSaved(false)
+      }, 2000)
       }
     } catch (error) {
       console.error("Error saving soul:", error)

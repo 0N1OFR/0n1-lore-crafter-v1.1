@@ -21,12 +21,12 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const fetchSoul = async () => {
-      const nftId = params.id as string
-      if (nftId) {
+    const nftId = params.id as string
+    if (nftId) {
         const foundSoul = await getSoul(nftId, 'force')
-        setSoul(foundSoul)
-      }
-      setIsLoading(false)
+      setSoul(foundSoul)
+    }
+    setIsLoading(false)
     }
     fetchSoul()
   }, [params.id])

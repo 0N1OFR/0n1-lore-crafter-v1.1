@@ -23,8 +23,8 @@ import { getCharacterMemories, saveCharacterMemories, createCharacterMemory } fr
 import { upgradeToEnhancedMemory } from "@/lib/memory-enhanced"
 import { useWallet } from "@/components/wallet/wallet-provider"
 import { 
-  getMemoryProfile,
-  saveMemoryProfile,
+  getMemoryProfile, 
+  saveMemoryProfile, 
   createDefaultMemoryProfile,
   addContextEntry,
   getAllTags,

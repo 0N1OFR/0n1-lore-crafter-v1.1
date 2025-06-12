@@ -197,12 +197,12 @@ export default function SoulsPage() {
                   : "Connect your wallet and own some 0N1 Force NFTs to start creating souls."
                 }
               </p>
-              <Button
-                onClick={() => router.push("/")}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-              >
+                <Button
+                  onClick={() => router.push("/")}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                >
                 {ownedNfts.length > 0 ? "Create Your First Soul" : "Go Back"}
-              </Button>
+                  </Button>
             </CardContent>
           </Card>
         ) : (
@@ -211,12 +211,12 @@ export default function SoulsPage() {
             <div className="mb-6">
               <div className="relative max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search souls by name, ID, archetype, or powers..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+              <Input
+                placeholder="Search souls by name, ID, archetype, or powers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 bg-black/60 border-purple-500/30 focus:border-purple-400"
-                />
+              />
               </div>
             </div>
 
@@ -224,14 +224,14 @@ export default function SoulsPage() {
             <div className="space-y-6">
               {filteredSouls.map((soul) => {
                 const openSeaLink = getOpenSeaNftLink(soul.data.pfpId || "")
-                
+
                 return (
                   <Card key={soul.id} className="border border-purple-500/30 bg-black/60 backdrop-blur-sm">
                     <CardHeader className="pb-4">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-xl font-bold text-white">
-                          {soul.data.soulName || `0N1 Force #${soul.data.pfpId}`}
-                        </CardTitle>
+                        {soul.data.soulName || `0N1 Force #${soul.data.pfpId}`}
+                      </CardTitle>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-sm">
                             0N1 Force #{soul.data.pfpId}
@@ -301,27 +301,27 @@ export default function SoulsPage() {
                               <p className="text-sm text-muted-foreground line-clamp-2">
                                 {soul.data.personalityProfile?.description || "No personality description available"}
                               </p>
-                            </div>
+                        </div>
 
                             <div>
                               <h3 className="font-semibold text-purple-300 mb-2">Powers & Abilities</h3>
                               <p className="text-sm text-muted-foreground line-clamp-2">
                                 {soul.data.powersAbilities?.description || "No powers defined"}
                               </p>
-                            </div>
+                      </div>
 
-                            <div>
+                        <div>
                               <h3 className="font-semibold text-purple-300 mb-2">World Position</h3>
                               <p className="text-sm text-muted-foreground">
                                 {soul.data.worldPosition?.societalRole || "Position unknown"}
-                              </p>
-                            </div>
+                          </p>
+                        </div>
 
-                            <div>
+                        <div>
                               <h3 className="font-semibold text-purple-300 mb-2">Voice & Tone</h3>
                               <p className="text-sm text-muted-foreground">
                                 {soul.data.voice?.speechStyle || "Voice not defined"}
-                              </p>
+                          </p>
                             </div>
                           </div>
                         </div>
@@ -412,4 +412,4 @@ export default function SoulsPage() {
       </div>
     </div>
   )
-} 
+}
