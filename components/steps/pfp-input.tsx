@@ -168,81 +168,121 @@ export function PfpInput({ characterData, updateCharacterData, nextStep }: PfpIn
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2 text-center">
-        <h2 className="text-3xl font-bold tracking-tight">Start with Your 0N1</h2>
-        <p className="text-muted-foreground">
-          Connect your wallet to select your 0N1 Force NFT and begin crafting your character's lore
-        </p>
-      </div>
-
-      {/* Wallet Connection Section */}
-      <div className="flex justify-center mb-4">
-        <WalletConnectButton />
-      </div>
-
+    <div className="space-y-8 animate-slide-in-up">
+      {/* Header - Only show when no NFT is connected yet */}
       {!isConnected && (
-        <div className="text-center p-6 border border-purple-500/30 rounded-lg bg-black/60 backdrop-blur-sm">
-          <p className="text-purple-300 mb-4">Connect your wallet to see your 0N1 Force NFTs</p>
-          <p className="text-sm text-purple-200/70">You need to connect your wallet to continue</p>
+        <div className="space-y-4 text-center">
+          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-cyber-gradient">
+            START WITH YOUR 0N1
+          </h2>
+          <p className="text-lg text-foreground/80 max-w-2xl mx-auto leading-relaxed">
+            Connect your wallet to select your <span className="text-cyber-red font-semibold">0N1 Force NFT</span> and begin crafting your character's lore
+          </p>
         </div>
       )}
 
-      {/* Owned NFTs Section - Only show when wallet is connected */}
+      {/* Enhanced Wallet Connection Section */}
+      <div className="flex justify-center">
+        <div className="relative">
+          <WalletConnectButton />
+          {/* Glow effect */}
+          <div className="absolute inset-0 bg-cyber-gradient opacity-20 blur-xl rounded-lg -z-10" />
+        </div>
+      </div>
+
+      {/* Connection Status Cards */}
+      {!isConnected && (
+        <Card className="max-w-2xl mx-auto">
+          <CardContent className="p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-cyber-red/20 flex items-center justify-center">
+              <User className="w-8 h-8 text-cyber-red" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-cyber-red">Connect Your Wallet</h3>
+            <p className="text-foreground/70 mb-4">
+              Connect your wallet to see your 0N1 Force NFTs and continue your journey
+            </p>
+            <p className="text-sm text-muted-foreground">
+              You need to connect your wallet to access your NFT collection
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Enhanced Owned NFTs Section */}
       {isConnected && (
-        <OwnedNfts 
-          onSelectNft={handleSelectNft} 
-          onShowTraits={handleShowTraits}
-          selectedNftId={selectedNftId} 
-          isLoading={isLoading} 
-        />
+        <div className="space-y-6">
+          <div className="text-center">
+            <h3 className="text-2xl font-semibold text-white mb-2">Your 0N1 Collection</h3>
+            <p className="text-foreground/70">Select an NFT to begin crafting its lore</p>
+          </div>
+          
+          <OwnedNfts 
+            onSelectNft={handleSelectNft} 
+            onShowTraits={handleShowTraits}
+            selectedNftId={selectedNftId} 
+            isLoading={isLoading} 
+          />
+        </div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <Card className="max-w-2xl mx-auto border-destructive/50 bg-destructive/10">
+          <CardContent className="p-6">
+            <div className="flex items-start space-x-3">
+              <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-destructive mb-1">Error</h4>
+                <p className="text-sm text-destructive/80">{error}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex justify-center items-center p-6 border border-purple-500/30 rounded-lg bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="flex flex-col items-center gap-2">
-            <div className="relative w-16 h-16">
-              <div className="absolute inset-0 rounded-full border-t-2 border-purple-500 animate-spin"></div>
-              <div className="absolute inset-2 rounded-full border-t-2 border-pink-500 animate-spin-slow"></div>
+        <Card className="max-w-2xl mx-auto">
+          <CardContent className="p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-cyber-red/20 flex items-center justify-center animate-pulse-glow">
+              <div className="w-8 h-8 border-2 border-cyber-red border-t-transparent rounded-full animate-spin" />
             </div>
-            <p className="text-purple-300 mt-2">Setting up your character for 0N1 #{selectedNftId}...</p>
-          </div>
-        </div>
+            <h3 className="text-xl font-semibold mb-2">Processing Your Selection</h3>
+            <p className="text-foreground/70">
+              Fetching your NFT data and preparing your character...
+            </p>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Error State */}
-      {error && !isLoading && (
-        <div className="p-4 rounded-md bg-red-950/30 border border-red-500/50 text-red-200 flex items-start gap-2 animate-fadeIn">
-          <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-          <div>
-            <p>{error}</p>
-            <p className="text-sm mt-1">
-              Try selecting a different NFT or check if the ID exists in the{" "}
-              <a
-                href="https://opensea.io/collection/0n1-force"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-red-100"
+      {/* Existing Profile Link */}
+      {hasSoul && selectedNftId && (
+        <Card className="max-w-2xl mx-auto border-cyber-orange/50 bg-cyber-orange/10">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-cyber-orange mb-1">
+                  Soul Already Exists
+                </h4>
+                <p className="text-sm text-foreground/70">
+                  This NFT already has a soul profile created
+                </p>
+              </div>
+              <Button
+                onClick={handleViewProfile}
+                variant="outline"
+                className="border-cyber-orange/40 text-cyber-orange hover:bg-cyber-orange/10"
               >
-                0N1 Force collection
-              </a>
-              .
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2 text-xs bg-red-950/50 hover:bg-red-900/50 border-red-500/30"
-              onClick={() => selectedNftId && fetchTokenData(selectedNftId)}
-            >
-              Try Again
-            </Button>
-          </div>
-        </div>
+                View Profile
+                <ExternalLink className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Traits Sidebar */}
-      <NftTraitsSidebar
+      <NftTraitsSidebar 
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         tokenId={sidebarTokenId}
