@@ -14,7 +14,8 @@ import { Download, ExternalLink, Save, BookOpen, Bot } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { storeSoul } from "@/lib/storage"
+import { saveSoul as saveSoulToStorage } from "@/lib/storage"
+import { useWallet } from "@/components/wallet/wallet-provider"
 
 interface FinalLoreProps {
   characterData: CharacterData
@@ -27,6 +28,7 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
   const [isSaving, setIsSaving] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const router = useRouter()
+  const { address } = useWallet()
   const CONTRACT_ADDRESS = "0x3bf2922f4520a8ba0c2efc3d2a1539678dad5e9d" // 0N1 Force contract address
 
   const handleSoulNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,20 +53,24 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
     linkElement.click()
   }
 
-  const saveSoul = () => {
-    if (!soulName.trim()) return
+  const saveSoul = async () => {
+    if (!soulName.trim() || !address) return
 
     setIsSaving(true)
 
     try {
-      // Store the soul in localStorage
-      storeSoul(characterData)
-      setIsSaved(true)
-
-      // Show success state for 2 seconds
-      setTimeout(() => {
-        setIsSaved(false)
-      }, 2000)
+      // Store the soul in Supabase
+      const soulData = {
+        data: { ...characterData, soulName }
+      }
+      const success = await saveSoulToStorage(soulData, address)
+      if (success) {
+        setIsSaved(true)
+        // Show success state for 2 seconds
+        setTimeout(() => {
+          setIsSaved(false)
+        }, 2000)
+      }
     } catch (error) {
       console.error("Error saving soul:", error)
     } finally {
@@ -72,12 +78,15 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
     }
   }
 
-  const deployAgent = () => {
+  const deployAgent = async () => {
     if (!soulName.trim()) return
 
     // Save the soul first if not already saved
-    if (!isSaved) {
-      storeSoul(characterData)
+    if (!isSaved && address) {
+      const soulData = {
+        data: { ...characterData, soulName }
+      }
+      await saveSoulToStorage(soulData, address)
     }
 
     // Navigate to the agent page

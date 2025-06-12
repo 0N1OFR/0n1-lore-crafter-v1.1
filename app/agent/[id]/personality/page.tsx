@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { getSoulByNftId, updateSoul, type StoredSoul } from "@/lib/storage"
+import { getSoul, saveSoul } from "@/lib/storage"
+import { type StoredSoul } from "@/lib/soul-types"
 import { UnifiedSoulHeader } from "@/components/unified-soul-header"
 import { PersonalityDashboard } from "@/components/personality-dashboard"
 import { Button } from "@/components/ui/button"
@@ -15,18 +16,20 @@ export default function PersonalityPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    
-    const nftId = params.id as string
-    if (nftId) {
-      const foundSoul = getSoulByNftId(nftId)
-      setSoul(foundSoul)
+    const fetchSoul = async () => {
+      const nftId = params.id as string
+      if (nftId) {
+        const foundSoul = await getSoul(nftId)
+        setSoul(foundSoul)
+      }
+      setIsLoading(false)
     }
-    setIsLoading(false)
+    fetchSoul()
   }, [params.id])
 
-  const handlePersonalityUpdate = (updatedSoul: StoredSoul) => {
-    if (updateSoul(updatedSoul.id, updatedSoul.data)) {
+  const handlePersonalityUpdate = async (updatedSoul: StoredSoul) => {
+    const success = await saveSoul({ data: updatedSoul.data }, updatedSoul.wallet_address || '')
+    if (success) {
       setSoul(updatedSoul)
     }
   }

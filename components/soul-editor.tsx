@@ -8,7 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { storeSoul, type StoredSoul } from "@/lib/storage"
+import { saveSoul } from "@/lib/storage"
+import { type StoredSoul } from "@/lib/soul-types"
+import { useWallet } from "@/components/wallet/wallet-provider"
 import type { CharacterData } from "@/lib/types"
 import { Save, X, AlertTriangle } from 'lucide-react'
 import Image from "next/image"
@@ -20,10 +22,11 @@ interface SoulEditorProps {
 }
 
 export function SoulEditor({ soul, onSave, onCancel }: SoulEditorProps) {
-  const [editedData, setEditedData] = useState<CharacterData>({ ...soul.data })
+  const [editedData, setEditedData] = useState<CharacterData>(soul.data)
   const [activeTab, setActiveTab] = useState("basic")
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { address } = useWallet()
 
   const handleChange = (
     section: keyof CharacterData,
@@ -33,10 +36,11 @@ export function SoulEditor({ soul, onSave, onCancel }: SoulEditorProps) {
   ) => {
     setEditedData((prev) => {
       if (isNestedField) {
+        const currentSection = prev[section as keyof CharacterData] as Record<string, any> || {}
         return {
           ...prev,
           [section]: {
-            ...prev[section as keyof CharacterData],
+            ...currentSection,
             [field]: value,
           },
         }
@@ -49,7 +53,7 @@ export function SoulEditor({ soul, onSave, onCancel }: SoulEditorProps) {
     })
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
       setIsSaving(true)
       setError(null)
@@ -63,12 +67,21 @@ export function SoulEditor({ soul, onSave, onCancel }: SoulEditorProps) {
 
       // Create updated soul
       const updatedSoul: StoredSoul = {
-        ...soul,
+        id: soul.id,
+        createdAt: soul.createdAt,
+        lastUpdated: new Date().toISOString(),
         data: editedData,
+        wallet_address: soul.wallet_address,
       }
 
-      // Save to storage
-      storeSoul(editedData)
+      // Save to storage - saveSoul expects a soul object with data property
+      if (address) {
+        const soulDataForSave = {
+          data: editedData,
+          timestamp: Date.now()
+        }
+        await saveSoul(soulDataForSave, address)
+      }
 
       // Notify parent component
       onSave(updatedSoul)

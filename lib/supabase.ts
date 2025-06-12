@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Client-side environment variables (available in browser)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 // Server-side only environment variables
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -13,9 +13,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Regular client for client-side operations (safe to use in browser)
-export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Admin client for server-side operations that need elevated permissions
 // This should only be used on the server side
@@ -225,4 +223,37 @@ export interface Database {
       }
     }
   }
+}
+
+// Database types
+export interface Soul {
+  id: string
+  nft_id: string
+  wallet_address: string
+  collection: 'force' | 'frame'
+  data: {
+    pfpId: string
+    name: string
+    traits: Record<string, any>
+    personality: Record<string, any>
+    backstory: string
+    motivations: string[]
+    hopes: string[]
+    fears: string[]
+    relationships: Record<string, any>
+    summary?: string
+  }
+  created_at: string
+  updated_at: string
+}
+
+export interface NFTMetadata {
+  id: string
+  nft_id: string
+  collection: 'force' | 'frame'
+  name: string
+  image_url: string
+  traits: Record<string, any>
+  contract_address: string
+  cached_at: string
 } 

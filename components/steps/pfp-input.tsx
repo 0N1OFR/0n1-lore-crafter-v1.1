@@ -11,7 +11,7 @@ import { SafeNftImage } from "@/components/safe-nft-image"
 import { WalletConnectButton } from "@/components/wallet/wallet-connect-button"
 import { OwnedNfts } from "@/components/wallet/owned-nfts"
 import { useWallet } from "@/components/wallet/wallet-provider"
-import { soulExistsForNft } from "@/lib/storage"
+import { soulExistsInDB } from "@/lib/storage"
 import { useRouter } from "next/navigation"
 import { NftTraitsSidebar } from "@/components/nft-traits-sidebar"
 
@@ -38,7 +38,19 @@ export function PfpInput({ characterData, updateCharacterData, nextStep }: PfpIn
   const router = useRouter()
   
   // Check if the current NFT has a soul attached
-  const hasSoul = selectedNftId ? soulExistsForNft(selectedNftId) : false
+  const [hasSoul, setHasSoul] = useState(false)
+  
+  useEffect(() => {
+    const checkSoulExists = async () => {
+      if (selectedNftId) {
+        const exists = await soulExistsInDB(selectedNftId, 'force')
+        setHasSoul(exists)
+      } else {
+        setHasSoul(false)
+      }
+    }
+    checkSoulExists()
+  }, [selectedNftId])
 
   // Fetch token data function
   const fetchTokenData = async (tokenId: string) => {

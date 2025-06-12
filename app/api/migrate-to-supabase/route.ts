@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkOwnershipRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
-import { migrateLocalStorageToSupabase, setCurrentWalletAddress } from '@/lib/storage-supabase'
+import { saveSoul } from '@/lib/storage'
 
 export async function POST(request: NextRequest) {
   // Check rate limit first
@@ -41,39 +41,26 @@ export async function POST(request: NextRequest) {
 
     // If specific character data is provided, migrate just that character
     if (characterData) {
-      setCurrentWalletAddress(walletAddress)
-      
-      // Import the storeSoul function and migrate single character
-      const { storeSoul } = await import('@/lib/storage-supabase')
-      const soulId = await storeSoul(characterData)
+      // Migrate single character
+      const soulData = {
+        data: characterData,
+        timestamp: Date.now()
+      }
+      const success = await saveSoul(soulData, walletAddress)
       
       return NextResponse.json({ 
-        success: true,
-        migratedCount: 1,
-        soulId,
-        message: "Character migrated successfully"
+        success,
+        migratedCount: success ? 1 : 0,
+        message: success ? "Character migrated successfully" : "Failed to migrate character"
       })
     }
 
-    // Otherwise, migrate all localStorage data for this wallet
-    console.log(`Starting migration for wallet: ${walletAddress}`)
-    
-    const migrationResult = await migrateLocalStorageToSupabase(walletAddress)
-    
-    if (migrationResult.success) {
-      return NextResponse.json({
-        success: true,
-        migratedCount: migrationResult.migratedCount,
-        message: `Successfully migrated ${migrationResult.migratedCount} characters to Supabase`
-      })
-    } else {
-      return NextResponse.json({
-        success: false,
-        migratedCount: migrationResult.migratedCount,
-        errors: migrationResult.errors,
-        message: `Migration completed with errors. ${migrationResult.migratedCount} characters migrated.`
-      }, { status: 207 }) // 207 Multi-Status for partial success
-    }
+    // For bulk migration, we would need to implement localStorage reading
+    // For now, return an error since we can't access localStorage server-side
+    return NextResponse.json({
+      success: false,
+      error: "Bulk migration not supported server-side. Please migrate characters individually from the client."
+    }, { status: 400 })
 
   } catch (error) {
     console.error("Migration error:", error)

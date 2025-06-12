@@ -19,7 +19,8 @@ import {
   Search
 } from "lucide-react"
 import Image from "next/image"
-import { getSoulByNftId, type StoredSoul } from "@/lib/storage"
+import { getSoul } from "@/lib/storage"
+import { type StoredSoul } from "@/lib/soul-types"
 import { getCharacterMemories, saveCharacterMemories, createCharacterMemory } from "@/lib/memory"
 import { upgradeToEnhancedMemory } from "@/lib/memory-enhanced"
 import { useWallet } from "@/components/wallet/wallet-provider"
@@ -74,7 +75,7 @@ export default function MemoryPage() {
 
       try {
         // Get the soul data
-        const foundSoul = getSoulByNftId(nftId)
+        const foundSoul = await getSoul(nftId)
         if (!foundSoul) {
           setError("Character soul not found")
           setIsLoading(false)

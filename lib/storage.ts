@@ -1,125 +1,245 @@
-// Utility functions for storing and retrieving soul data from localStorage
-
 import type { CharacterData } from "./types"
+import { supabase, type Soul } from './supabase'
 
-const STORAGE_KEY = "oni-souls"
+// Soul management functions using Supabase
+export async function saveSoul(soulData: any, walletAddress: string): Promise<boolean> {
+  try {
+    const soul: Omit<Soul, 'id' | 'created_at' | 'updated_at'> = {
+      nft_id: soulData.data.pfpId,
+      wallet_address: walletAddress.toLowerCase(),
+      collection: soulData.data.collection || 'force',
+      data: soulData.data
+    }
 
-export interface StoredSoul {
-  id: string // Unique ID for the soul (timestamp + pfpId)
-  createdAt: string // ISO date string
-  lastUpdated: string // ISO date string
-  data: CharacterData
+    const { error } = await supabase
+      .from('souls')
+      .upsert(soul, { 
+        onConflict: 'nft_id,collection',
+        ignoreDuplicates: false 
+      })
+
+    if (error) {
+      console.error('Error saving soul to Supabase:', error)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error in saveSoul:', error)
+    return false
+  }
 }
 
-// Get all stored souls
-export function getStoredSouls(): StoredSoul[] {
-  if (typeof window === "undefined") return []
-
+export async function getSoul(nftId: string, collection: 'force' | 'frame' = 'force'): Promise<any | null> {
   try {
-    const storedData = localStorage.getItem(STORAGE_KEY)
-    if (!storedData) return []
-    return JSON.parse(storedData)
+    const { data, error } = await supabase
+      .from('souls')
+      .select('*')
+      .eq('nft_id', nftId)
+      .eq('collection', collection)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned - soul doesn't exist
+        return null
+      }
+      console.error('Error fetching soul from Supabase:', error)
+      return null
+    }
+
+    return data ? { data: data.data } : null
   } catch (error) {
-    console.error("Error retrieving stored souls:", error)
+    console.error('Error in getSoul:', error)
+    return null
+  }
+}
+
+export async function getAllSouls(walletAddress?: string): Promise<any[]> {
+  try {
+    let query = supabase.from('souls').select('*')
+    
+    if (walletAddress) {
+      query = query.eq('wallet_address', walletAddress.toLowerCase())
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching souls from Supabase:', error)
+      return []
+    }
+
+    return data?.map(soul => ({ data: soul.data })) || []
+  } catch (error) {
+    console.error('Error in getAllSouls:', error)
     return []
   }
 }
 
-// Check if a soul exists for a specific NFT
-export function soulExistsForNft(pfpId: string): boolean {
-  const souls = getStoredSouls()
-  return souls.some((soul) => soul.data.pfpId === pfpId)
-}
+export async function deleteSoulFromDB(nftId: string, collection: 'force' | 'frame' = 'force'): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('souls')
+      .delete()
+      .eq('nft_id', nftId)
+      .eq('collection', collection)
 
-// Get a specific soul by NFT ID
-export function getSoulByNftId(pfpId: string): StoredSoul | null {
-  const souls = getStoredSouls()
-  return souls.find((soul) => soul.data.pfpId === pfpId) || null
-}
-
-// Get a specific soul by ID
-export function getSoulById(id: string): StoredSoul | null {
-  const souls = getStoredSouls()
-  return souls.find((soul) => soul.id === id) || null
-}
-
-// Store a new soul or update an existing one
-export function storeSoul(characterData: CharacterData): string {
-  const souls = getStoredSouls()
-
-  // Check if a soul already exists for this NFT
-  const existingIndex = souls.findIndex((soul) => soul.data.pfpId === characterData.pfpId)
-  const timestamp = new Date().toISOString()
-  
-  if (existingIndex >= 0) {
-    // Update existing soul
-    const existingSoul = souls[existingIndex]
-    const updatedSoul: StoredSoul = {
-      ...existingSoul,
-      lastUpdated: timestamp,
-      data: characterData,
+    if (error) {
+      console.error('Error deleting soul from Supabase:', error)
+      return false
     }
-    souls[existingIndex] = updatedSoul
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(souls))
-    
-    // Dispatch a storage event to notify other tabs/components
-    window.dispatchEvent(new Event("storage"))
-    
-    return existingSoul.id
-  } else {
-    // Add new soul
-    const id = `${timestamp}-${characterData.pfpId}`
-    const newSoul: StoredSoul = {
-      id,
-      createdAt: timestamp,
-      lastUpdated: timestamp,
-      data: characterData,
-    }
-    souls.push(newSoul)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(souls))
-    
-    // Dispatch a storage event to notify other tabs/components
-    window.dispatchEvent(new Event("storage"))
-    
-    return id
-  }
-}
 
-// Update an existing soul by ID
-export function updateSoul(id: string, characterData: CharacterData): boolean {
-  const souls = getStoredSouls()
-  const existingIndex = souls.findIndex((soul) => soul.id === id)
-  
-  if (existingIndex >= 0) {
-    souls[existingIndex] = {
-      ...souls[existingIndex],
-      lastUpdated: new Date().toISOString(),
-      data: characterData,
-    }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(souls))
-    
-    // Dispatch a storage event to notify other tabs/components
-    window.dispatchEvent(new Event("storage"))
-    
     return true
+  } catch (error) {
+    console.error('Error in deleteSoulFromDB:', error)
+    return false
   }
-  
-  return false
 }
 
-// Delete a soul
-export function deleteSoul(id: string): boolean {
-  const souls = getStoredSouls()
-  const filteredSouls = souls.filter((soul) => soul.id !== id)
+export async function soulExistsInDB(nftId: string, collection: 'force' | 'frame' = 'force'): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('souls')
+      .select('id')
+      .eq('nft_id', nftId)
+      .eq('collection', collection)
+      .single()
 
-  if (filteredSouls.length === souls.length) {
-    return false // Nothing was deleted
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned - soul doesn't exist
+        return false
+      }
+      console.error('Error checking soul existence:', error)
+      return false
+    }
+
+    return !!data
+  } catch (error) {
+    console.error('Error in soulExistsInDB:', error)
+    return false
   }
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredSouls))
-  
-  // Dispatch a storage event to notify other tabs/components
-  window.dispatchEvent(new Event("storage"))
-  
-  return true
 }
+
+// NFT Metadata caching functions
+export async function cacheNFTMetadata(nftId: string, collection: 'force' | 'frame', metadata: any): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('nft_metadata')
+      .upsert({
+        nft_id: nftId,
+        collection,
+        name: metadata.name,
+        image_url: metadata.image_url,
+        traits: metadata.traits || {},
+        contract_address: metadata.contract_address
+      }, { 
+        onConflict: 'nft_id,collection',
+        ignoreDuplicates: false 
+      })
+
+    if (error) {
+      console.error('Error caching NFT metadata:', error)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error in cacheNFTMetadata:', error)
+    return false
+  }
+}
+
+export async function getCachedNFTMetadata(nftId: string, collection: 'force' | 'frame'): Promise<any | null> {
+  try {
+    const { data, error } = await supabase
+      .from('nft_metadata')
+      .select('*')
+      .eq('nft_id', nftId)
+      .eq('collection', collection)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null
+      }
+      console.error('Error fetching cached NFT metadata:', error)
+      return null
+    }
+
+    return data
+  } catch (error) {
+    console.error('Error in getCachedNFTMetadata:', error)
+    return null
+  }
+}
+
+// Character data management (async versions)
+export async function saveCharacterData(characterData: CharacterData, walletAddress: string): Promise<boolean> {
+  try {
+    const soulData = {
+      data: characterData,
+      timestamp: Date.now()
+    }
+    return await saveSoul(soulData, walletAddress)
+  } catch (error) {
+    console.error("Error saving character data:", error)
+    return false
+  }
+}
+
+export async function getCharacterData(pfpId: string, collection: 'force' | 'frame' = 'force'): Promise<CharacterData | null> {
+  try {
+    const soul = await getSoul(pfpId, collection)
+    return soul ? soul.data : null
+  } catch (error) {
+    console.error("Error getting character data:", error)
+    return null
+  }
+}
+
+export async function getAllCharacterData(walletAddress?: string): Promise<CharacterData[]> {
+  try {
+    const souls = await getAllSouls(walletAddress)
+    return souls.map(soul => soul.data).filter(Boolean)
+  } catch (error) {
+    console.error("Error getting all character data:", error)
+    return []
+  }
+}
+
+export async function deleteCharacterData(pfpId: string, collection: 'force' | 'frame' = 'force'): Promise<boolean> {
+  try {
+    return await deleteSoulFromDB(pfpId, collection)
+  } catch (error) {
+    console.error("Error deleting character data:", error)
+    return false
+  }
+}
+
+export async function characterDataExists(pfpId: string, collection: 'force' | 'frame' = 'force'): Promise<boolean> {
+  try {
+    return await soulExistsInDB(pfpId, collection)
+  } catch (error) {
+    console.error("Error checking if character data exists:", error)
+    return false
+  }
+}
+
+// Utility functions
+export async function getSoulCount(walletAddress?: string): Promise<number> {
+  try {
+    const souls = await getAllSouls(walletAddress)
+    return souls.length
+  } catch (error) {
+    console.error('Error getting soul count:', error)
+    return 0
+  }
+}
+
+// Add missing function aliases for backward compatibility
+export const getSoulByNftId = getSoul
+export const storeSoul = saveSoul
+export const soulExistsForNft = soulExistsInDB
+export const getStoredSouls = getAllSouls 

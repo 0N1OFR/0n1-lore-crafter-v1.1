@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkOwnershipRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { COLLECTIONS, CollectionKey } from '@/lib/collection-config'
 
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY
-const ON1_CONTRACT_ADDRESS = "0x3bf2922f4520a8ba0c2efc3d2a1539678dad5e9d"
 
 export async function GET(request: NextRequest) {
   // Check rate limit first
@@ -58,11 +58,22 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Method 1: Check via OpenSea API (faster, but depends on OpenSea)
-    const ownsViaOpenSea = await checkOwnershipViaOpenSea(address, tokenId)
+    // Check ownership across both Force and Frame collections
+    const [ownsForce, ownsFrame] = await Promise.all([
+      checkOwnershipViaOpenSea(address, tokenId, 'force'),
+      checkOwnershipViaOpenSea(address, tokenId, 'frame')
+    ])
+    
+    const owns = ownsForce || ownsFrame
+    const ownedCollections = []
+    if (ownsForce) ownedCollections.push('force')
+    if (ownsFrame) ownedCollections.push('frame')
     
     return NextResponse.json({ 
-      owns: ownsViaOpenSea,
+      owns,
+      ownedCollections,
+      ownsForce,
+      ownsFrame,
       method: "opensea"
     }, {
       headers: {
@@ -78,34 +89,40 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function checkOwnershipViaOpenSea(address: string, tokenId: string): Promise<boolean> {
+async function checkOwnershipViaOpenSea(address: string, tokenId: string, collection: CollectionKey): Promise<boolean> {
   const normalizedTokenId = tokenId.replace(/^0+/, "")
+  const contractAddress = COLLECTIONS[collection].contractAddress
   
   // Check if this specific NFT is owned by the address
-  const url = `https://api.opensea.io/api/v2/chain/ethereum/contract/${ON1_CONTRACT_ADDRESS}/nfts/${normalizedTokenId}`
+  const url = `https://api.opensea.io/api/v2/chain/ethereum/contract/${contractAddress}/nfts/${normalizedTokenId}`
   
-  console.log(`Verifying ownership: ${address} owns NFT #${normalizedTokenId}`)
+  console.log(`Verifying ${COLLECTIONS[collection].displayName} ownership: ${address} owns NFT #${normalizedTokenId}`)
   
-  const response = await fetch(url, {
-    headers: {
-      "X-API-KEY": OPENSEA_API_KEY!,
-      "Accept": "application/json",
-    },
-    next: { revalidate: 300 }, // Cache for 5 minutes
-  })
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "X-API-KEY": OPENSEA_API_KEY!,
+        "Accept": "application/json",
+      },
+      next: { revalidate: 300 }, // Cache for 5 minutes
+    })
 
-  if (!response.ok) {
-    console.error(`OpenSea ownership API error: ${response.status}`)
-    throw new Error(`OpenSea API error: ${response.status}`)
+    if (!response.ok) {
+      console.error(`OpenSea ${collection} ownership API error: ${response.status}`)
+      return false // Return false instead of throwing to allow other collection checks
+    }
+
+    const data = await response.json()
+    
+    // Check if the current owner matches the provided address
+    const currentOwner = data.nft?.owners?.[0]?.address || data.nft?.owner
+    const owns = currentOwner?.toLowerCase() === address.toLowerCase()
+    
+    console.log(`${COLLECTIONS[collection].displayName} ownership result: ${address} ${owns ? 'OWNS' : 'DOES NOT OWN'} NFT #${normalizedTokenId}`)
+    
+    return owns
+  } catch (error) {
+    console.error(`Error checking ${collection} ownership:`, error)
+    return false // Return false on error to allow other collection checks
   }
-
-  const data = await response.json()
-  
-  // Check if the current owner matches the provided address
-  const currentOwner = data.nft?.owners?.[0]?.address || data.nft?.owner
-  const owns = currentOwner?.toLowerCase() === address.toLowerCase()
-  
-  console.log(`Ownership result: ${address} ${owns ? 'OWNS' : 'DOES NOT OWN'} NFT #${normalizedTokenId}`)
-  
-  return owns
 } 

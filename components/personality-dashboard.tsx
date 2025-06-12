@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Brain, Save, RotateCcw, Shuffle } from "lucide-react"
 import type { PersonalitySettings } from "@/lib/types"
-import type { StoredSoul } from "@/lib/storage"
+import type { StoredSoul } from "@/lib/soul-types"
 import { generatePersonalityFromSoul, createDefaultPersonalitySettings } from "@/lib/personality-generator"
 
 interface PersonalityDashboardProps {

@@ -4,14 +4,14 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getSoulByNftId, type StoredSoul } from "@/lib/storage"
+import { getSoul, deleteSoulFromDB } from "@/lib/storage"
+import { type StoredSoul } from "@/lib/soul-types"
 import { ArrowLeft, MessageCircle, Edit, Download, Trash2, ExternalLink } from "lucide-react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { CharacterDossier } from "@/components/character-dossier"
 import { getOpenSeaNftLink } from "@/lib/api"
 import { UnifiedSoulHeader } from "@/components/unified-soul-header"
-import { deleteSoul } from "@/lib/storage"
 
 export default function ProfilePage() {
   const params = useParams()
@@ -20,20 +20,21 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    
-    const nftId = params.id as string
-    if (nftId) {
-      const foundSoul = getSoulByNftId(nftId)
-      setSoul(foundSoul)
+    const fetchSoul = async () => {
+      const nftId = params.id as string
+      if (nftId) {
+        const foundSoul = await getSoul(nftId, 'force')
+        setSoul(foundSoul)
+      }
+      setIsLoading(false)
     }
-    setIsLoading(false)
+    fetchSoul()
   }, [params.id])
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!soul) return
     if (confirm(`Are you sure you want to delete ${soul.data.soulName}? This action cannot be undone.`)) {
-      deleteSoul(soul.id)
+      await deleteSoulFromDB(soul.data.pfpId, 'force')
       router.push("/souls")
     }
   }

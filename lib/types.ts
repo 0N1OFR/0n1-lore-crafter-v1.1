@@ -290,3 +290,35 @@ export interface WalletState {
   address: string | null
   ownedNfts: OwnedNft[]
 }
+
+// New types for dual collection support
+export interface UnifiedCharacter {
+  tokenId: string
+  forceImageUrl: string | null
+  frameImageUrl: string | null
+  hasForce: boolean
+  hasFrame: boolean
+  displayName: string
+  // User preference storage
+  preferredView?: 'force' | 'frame'
+}
+
+// Enhanced CharacterData to support collection awareness
+export interface CollectionAwareCharacterData extends CharacterData {
+  collection?: 'force' | 'frame'
+  alternateImageUrl?: string // For storing the other collection's image
+}
+
+// API response types for dual collection support
+export interface UnifiedCharacterResponse {
+  characters: UnifiedCharacter[]
+  totalCount: number
+}
+
+export interface CollectionNftData {
+  tokenId: string
+  name: string
+  imageUrl: string
+  collection: 'force' | 'frame'
+  traits: Trait[]
+}

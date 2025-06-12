@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { getSoulByNftId, type StoredSoul } from "@/lib/storage"
+import { getSoul } from "@/lib/storage"
+import { type StoredSoul } from "@/lib/soul-types"
 import { SoulEditor } from "@/components/soul-editor"
 import { ArrowLeft } from 'lucide-react'
 
@@ -25,13 +26,17 @@ export default function EditSoulPage() {
   }
 
   useEffect(() => {
-    const nftId = params.id as string
-    if (nftId) {
-      const foundSoul = getSoulByNftId(nftId)
-      setSoul(foundSoul)
-      setIsLoading(false)
+    const fetchSoul = async () => {
+      const nftId = params.id as string
+      const collection = searchParams.get('collection') || 'force'
+      if (nftId) {
+        const foundSoul = await getSoul(nftId, collection as 'force' | 'frame')
+        setSoul(foundSoul)
+        setIsLoading(false)
+      }
     }
-  }, [params.id])
+    fetchSoul()
+  }, [params.id, searchParams])
 
   const handleSaveSoul = (updatedSoul: StoredSoul) => {
     // After saving, redirect back to where user came from

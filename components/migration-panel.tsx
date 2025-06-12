@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle, AlertCircle, Upload, Database, HardDrive } from "lucide-react"
 import { useWallet } from "@/components/wallet/wallet-provider"
-import { getLocalStoredSoulsSync } from "@/lib/storage-supabase"
+import { getSoulCount } from "@/lib/storage"
 
 interface MigrationResult {
   success: boolean
@@ -23,8 +23,18 @@ export function MigrationPanel() {
   const [migrationResult, setMigrationResult] = useState<MigrationResult | null>(null)
   const [progress, setProgress] = useState(0)
 
-  // Get localStorage data count
-  const localSoulsCount = typeof window !== 'undefined' ? getLocalStoredSoulsSync().length : 0
+  // Get soul count from Supabase
+  const [localSoulsCount, setLocalSoulsCount] = useState(0)
+
+  useEffect(() => {
+    const fetchSoulCount = async () => {
+      if (address) {
+        const count = await getSoulCount(address)
+        setLocalSoulsCount(count)
+      }
+    }
+    fetchSoulCount()
+  }, [address])
 
   const handleMigration = async () => {
     if (!isConnected || !address) {
