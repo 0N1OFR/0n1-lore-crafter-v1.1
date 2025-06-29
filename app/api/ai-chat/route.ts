@@ -262,7 +262,10 @@ function buildContextFromMemory(
     mode,
     includeExamples: mode === 'full',
     context: {
-      recentMessages: conversationMemory.messages.slice(-6).map(m => m.content),
+      recentMessages: conversationMemory.messages
+        .filter(m => m.role === 'assistant')
+        .slice(-5)
+        .map(m => m.content),
       userIntent,
       emotionalState: undefined // Could be enhanced later
     }

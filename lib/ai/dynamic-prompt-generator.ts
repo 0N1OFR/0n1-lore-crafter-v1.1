@@ -1,5 +1,6 @@
 import type { PersonalitySettings, CharacterData } from '@/lib/types'
 import { PersonalityBehaviors, ResponseModifier, interpretPersonalitySettings } from '@/lib/personality/interpreter'
+import { generateVariedOpenings } from '@/lib/personality/speech-patterns'
 
 export interface PromptGenerationOptions {
   mode: 'lite' | 'full'
@@ -36,6 +37,9 @@ export function generatePersonalityPrompt(
   
   // Speech patterns and style
   sections.push(generateSpeechPatternSection(behaviors, settings))
+  
+  // Anti-repetition instructions
+  sections.push(generateAntiRepetitionInstructions(options.context?.recentMessages, settings))
   
   // Emotional and psychological framework
   sections.push(generateEmotionalFramework(behaviors, settings))
@@ -135,6 +139,63 @@ function generateSpeechPatternSection(behaviors: PersonalityBehaviors, settings:
   // Sentence structure preferences
   if (settings.sentenceStructure) {
     section += `\n\n### Sentence Construction\n- Primary style: ${settings.sentenceStructure}`
+  }
+  
+  return section
+}
+
+// Generate anti-repetition instructions
+function generateAntiRepetitionInstructions(recentMessages?: string[], settings?: PersonalitySettings): string {
+  let section = '## RESPONSE VARIATION REQUIREMENTS\n'
+  section += '### CRITICAL: Avoid Repetitive Patterns\n'
+  section += '- NEVER start multiple responses with the same phrase (e.g., "Oh great", "Well", "Look", etc.)\n'
+  section += '- Vary your opening words - each response should begin differently\n'
+  section += '- If you catch yourself using a pattern, immediately switch it up\n'
+  section += '- Mix up your response structures: questions, statements, exclamations, actions\n'
+  
+  // Check recent messages for patterns
+  if (recentMessages && recentMessages.length > 0) {
+    section += '\n\n### Recent Pattern Detection\n'
+    
+    // Look for common opening phrases in recent messages
+    const openings = recentMessages.map(msg => {
+      const firstWords = msg.trim().split(' ').slice(0, 2).join(' ').toLowerCase()
+      return firstWords
+    })
+    
+    const openingCounts = openings.reduce((acc, opening) => {
+      acc[opening] = (acc[opening] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+    
+    // Warn about overused openings
+    Object.entries(openingCounts).forEach(([opening, count]) => {
+      if (count >= 2) {
+        section += `\n- AVOID starting with "${opening}" - you've used it ${count} times recently`
+      }
+    })
+  }
+  
+  section += '\n\n### Variety Techniques\n'
+  section += '- Start with actions: *does something* instead of speaking first\n'
+  section += '- Open with questions to flip the dynamic\n'
+  section += '- Jump straight into the middle of a thought\n'
+  section += '- Use your personality traits to create unique openings\n'
+  section += '- Reference something specific from the conversation\n'
+  section += '- React with sounds or expressions before words\n'
+  
+  // Add personality-specific opening suggestions
+  if (settings) {
+    const variedOpenings = generateVariedOpenings(settings)
+    if (variedOpenings.length > 0) {
+      section += '\n\n### Suggested Openings Based on Your Personality:\n'
+      // Pick random subset to avoid overwhelming
+      const selectedOpenings = variedOpenings
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 10)
+      section += selectedOpenings.map(opening => `- "${opening}"`).join('\n')
+      section += '\n\nUse these as inspiration, but always adapt to the specific context.'
+    }
   }
   
   return section
@@ -414,7 +475,7 @@ export function generateModelParameters(settings: PersonalitySettings): {
 } {
   let temperature = 0.8 // Base temperature
   let presence_penalty = 0.3
-  let frequency_penalty = 0.3
+  let frequency_penalty = 0.5 // Increased to reduce repetition
   
   // Adjust temperature based on personality traits
   

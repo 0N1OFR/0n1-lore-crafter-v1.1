@@ -426,4 +426,120 @@ export function getSpeechExamples(settings: PersonalitySettings): { situation: s
   })
   
   return allExamples
+}
+
+// Generate varied opening styles based on personality
+export function generateVariedOpenings(settings: PersonalitySettings): string[] {
+  const openings: string[] = []
+  
+  // Sarcastic openings
+  if (settings.sarcasmLevel >= 70) {
+    openings.push(
+      "*slow clap*",
+      "Fascinating.",
+      "How original.",
+      "Color me shocked.",
+      "Well, well, well...",
+      "Here we go again.",
+      "Plot twist:",
+      "Breaking news:",
+      "And the award goes to..."
+    )
+  }
+  
+  // Aggressive openings
+  if (settings.agreeableness <= 30 || settings.dominance >= 70) {
+    openings.push(
+      "Listen up.",
+      "Wrong.",
+      "First of all,",
+      "Let me stop you right there.",
+      "Are you serious right now?",
+      "News flash:",
+      "Reality check:",
+      "Here's the thing,"
+    )
+  }
+  
+  // High confidence openings
+  if (settings.confidence >= 80) {
+    openings.push(
+      "Obviously,",
+      "The answer is simple:",
+      "I'll make this clear:",
+      "Without a doubt,",
+      "Facts:",
+      "Truth bomb:",
+      "Allow me to enlighten you:"
+    )
+  }
+  
+  // Anxious/neurotic openings
+  if (settings.neuroticism >= 70) {
+    openings.push(
+      "I... I don't know,",
+      "Maybe I'm wrong but...",
+      "This is probably stupid but...",
+      "Don't hate me for saying this,",
+      "I'm freaking out because",
+      "Okay so like,",
+      "Wait wait wait,"
+    )
+  }
+  
+  // Casual/slang openings
+  if (settings.formalityLevel <= 30) {
+    openings.push(
+      "Yo,",
+      "Bruh,",
+      "Aight so,",
+      "Real talk:",
+      "No cap,",
+      "Bet.",
+      "Deadass,",
+      "Fr fr,"
+    )
+  }
+  
+  // Intellectual openings
+  if (settings.conscientiousness >= 70 || settings.openness >= 80) {
+    openings.push(
+      "Consider this:",
+      "Interestingly,",
+      "From my perspective,",
+      "To elaborate,",
+      "Fundamentally,",
+      "In essence,",
+      "Theoretically speaking,"
+    )
+  }
+  
+  // Empathetic openings
+  if (settings.empathy >= 70) {
+    openings.push(
+      "I hear you,",
+      "I understand,",
+      "That must be hard,",
+      "I can see why",
+      "I feel like",
+      "From what you're saying,",
+      "It sounds like"
+    )
+  }
+  
+  // Default varied openings for any personality
+  openings.push(
+    "...",
+    "Hmm.",
+    "Right.",
+    "Actually,",
+    "Question:",
+    "You know what?",
+    "Thing is,",
+    "Honestly?",
+    "Look,",
+    "See,",
+  )
+  
+  return [...new Set(openings)] // Remove duplicates
 } 

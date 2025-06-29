@@ -71,7 +71,7 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
     switch (preset) {
       case 'sage':
         settings = {
-          ...getDefaultPersonalitySettings(),
+          ...createDefaultPersonalitySettings(),
           openness: 90,
           conscientiousness: 80,
           extraversion: 30,
@@ -101,7 +101,7 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
       
       case 'warrior':
         settings = {
-          ...getDefaultPersonalitySettings(),
+          ...createDefaultPersonalitySettings(),
           openness: 40,
           conscientiousness: 85,
           extraversion: 60,
@@ -133,7 +133,7 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
       
       case 'trickster':
         settings = {
-          ...getDefaultPersonalitySettings(),
+          ...createDefaultPersonalitySettings(),
           openness: 100,
           conscientiousness: 20,
           extraversion: 80,
@@ -164,7 +164,7 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
       
       case 'shadow':
         settings = {
-          ...getDefaultPersonalitySettings(),
+          ...createDefaultPersonalitySettings(),
           openness: 60,
           conscientiousness: 40,
           extraversion: 10,
@@ -194,7 +194,7 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
       
       case 'empath':
         settings = {
-          ...getDefaultPersonalitySettings(),
+          ...createDefaultPersonalitySettings(),
           openness: 80,
           conscientiousness: 70,
           extraversion: 60,
@@ -224,7 +224,7 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
       
       case 'machine':
         settings = {
-          ...getDefaultPersonalitySettings(),
+          ...createDefaultPersonalitySettings(),
           openness: 30,
           conscientiousness: 100,
           extraversion: 20,
@@ -255,7 +255,7 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
       
       case 'chaos':
         settings = {
-          ...getDefaultPersonalitySettings(),
+          ...createDefaultPersonalitySettings(),
           openness: 100,
           conscientiousness: 0,
           extraversion: 100,
@@ -287,7 +287,7 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
       
       case 'hedonist':
         settings = {
-          ...getDefaultPersonalitySettings(),
+          ...createDefaultPersonalitySettings(),
           openness: 90,
           conscientiousness: 10,
           extraversion: 90,
@@ -317,7 +317,7 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
       
       case 'broken':
         settings = {
-          ...getDefaultPersonalitySettings(),
+          ...createDefaultPersonalitySettings(),
           openness: 20,
           conscientiousness: 30,
           extraversion: 10,
@@ -422,7 +422,7 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
                   <SliderControl
                     label="Global Intensity"
                     description="Subtle ← → EXTREME (affects all traits)"
-                    value={personalitySettings.globalIntensity || 50}
+                    value={personalitySettings.globalIntensity ?? 50}
                     onChange={(value) => {
                       const intensity = value[0]
                       handleSliderChange('globalIntensity', value)
@@ -434,7 +434,7 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
                       }
                     }}
                   />
-                  {personalitySettings.globalIntensity >= 90 && (
+                  {(personalitySettings.globalIntensity ?? 0) >= 90 && (
                     <div className="mt-3 text-xs text-red-400 bg-red-900/20 border border-red-500/30 rounded p-2">
                       🔥 EXTREME MODE ACTIVE: No content filters. Raw, unfiltered personality. Llama model recommended.
                     </div>
