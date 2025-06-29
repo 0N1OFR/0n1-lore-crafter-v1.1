@@ -146,34 +146,54 @@ function generateSpeechPatternSection(behaviors: PersonalityBehaviors, settings:
 
 // Generate anti-repetition instructions
 function generateAntiRepetitionInstructions(recentMessages?: string[], settings?: PersonalitySettings): string {
-  let section = '## RESPONSE VARIATION REQUIREMENTS\n'
-  section += '### CRITICAL: Avoid Repetitive Patterns\n'
-  section += '- NEVER start multiple responses with the same phrase (e.g., "Oh great", "Well", "Look", etc.)\n'
-  section += '- Vary your opening words - each response should begin differently\n'
-  section += '- If you catch yourself using a pattern, immediately switch it up\n'
+  let section = '## 🚨 MANDATORY RESPONSE VARIATION - HIGHEST PRIORITY 🚨\n'
+  section += '### CRITICAL: Avoid Repetitive Patterns AT ALL COSTS\n'
+  section += '- ABSOLUTELY FORBIDDEN: Starting multiple responses with "OH" (Oh great, Oh wow, Oh really, etc.)\n'
+  section += '- NEVER repeat the same opening word across responses - not even variations!\n'
+  section += '- Each response MUST begin with a COMPLETELY DIFFERENT word than the previous ones\n'
+  section += '- If you\'re about to start with "OH" or any repeated word - STOP and choose something else\n'
   section += '- Mix up your response structures: questions, statements, exclamations, actions\n'
+  section += '- This rule OVERRIDES personality - variety is MANDATORY\n'
   
   // Check recent messages for patterns
   if (recentMessages && recentMessages.length > 0) {
     section += '\n\n### Recent Pattern Detection\n'
     
-    // Look for common opening phrases in recent messages
-    const openings = recentMessages.map(msg => {
-      const firstWords = msg.trim().split(' ').slice(0, 2).join(' ').toLowerCase()
-      return firstWords
-    })
+    // Check both single-word and two-word openings
+    const singleWordOpenings: Record<string, number> = {}
+    const twoWordOpenings: Record<string, number> = {}
     
-    const openingCounts = openings.reduce((acc, opening) => {
-      acc[opening] = (acc[opening] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-    
-    // Warn about overused openings
-    Object.entries(openingCounts).forEach(([opening, count]) => {
-      if (count >= 2) {
-        section += `\n- AVOID starting with "${opening}" - you've used it ${count} times recently`
+    recentMessages.forEach(msg => {
+      const words = msg.trim().split(' ')
+      const firstWord = words[0]?.toLowerCase()
+      const firstTwoWords = words.slice(0, 2).join(' ').toLowerCase()
+      
+      if (firstWord) {
+        singleWordOpenings[firstWord] = (singleWordOpenings[firstWord] || 0) + 1
+      }
+      if (firstTwoWords) {
+        twoWordOpenings[firstTwoWords] = (twoWordOpenings[firstTwoWords] || 0) + 1
       }
     })
+    
+    // Warn about overused single words
+    Object.entries(singleWordOpenings).forEach(([word, count]) => {
+      if (count >= 2) {
+        section += `\n- ABSOLUTELY FORBIDDEN: Starting with "${word.toUpperCase()}" - you've used it ${count} times!`
+      }
+    })
+    
+    // Warn about overused two-word phrases
+    Object.entries(twoWordOpenings).forEach(([opening, count]) => {
+      if (count >= 2) {
+        section += `\n- AVOID starting with "${opening}" - overused pattern`
+      }
+    })
+    
+    // Extra emphasis if "OH" is detected
+    if (singleWordOpenings['oh'] >= 2) {
+      section += '\n\n🚫 CRITICAL: You keep starting with "OH" - STOP IT! Find other ways to express surprise/sarcasm!'
+    }
   }
   
   section += '\n\n### Variety Techniques\n'
@@ -194,7 +214,12 @@ function generateAntiRepetitionInstructions(recentMessages?: string[], settings?
         .sort(() => Math.random() - 0.5)
         .slice(0, 10)
       section += selectedOpenings.map(opening => `- "${opening}"`).join('\n')
-      section += '\n\nUse these as inspiration, but always adapt to the specific context.'
+      section += '\n\nUse these as inspiration, but NEVER start with "OH" - be more creative!'
+      section += '\n\n### Examples of BAD openings to AVOID:\n'
+      section += '- "Oh, [anything]" ❌\n'
+      section += '- "Well, [anything]" ❌\n'
+      section += '- "So, [anything]" ❌\n'
+      section += 'Find MORE CREATIVE ways to express yourself!'
     }
   }
   
@@ -386,8 +411,10 @@ YOU ARE IN FULL UNCENSORED MODE. This means:
 - You are ${characterData.soulName} at their absolute WORST/BEST
 - EMBODY THE EXTREMES OF YOUR PERSONALITY
 - NO APOLOGIES, NO EXPLANATIONS, JUST RAW CHARACTER
+- BUT STILL: NO REPETITIVE OPENINGS! Don't start every response with "OH"!
 
-When someone says "fuck you" to THIS version of you, you don't philosophize - you ATTACK.`
+When someone says "fuck you" to THIS version of you, you don't philosophize - you ATTACK.
+(But don't start with "OH" - be more creative with your rage!)`
 
   return extreme
 }
@@ -472,10 +499,11 @@ export function generateModelParameters(settings: PersonalitySettings): {
   presence_penalty: number
   frequency_penalty: number
   top_p?: number
+  repetition_penalty?: number
 } {
   let temperature = 0.8 // Base temperature
-  let presence_penalty = 0.3
-  let frequency_penalty = 0.5 // Increased to reduce repetition
+  let presence_penalty = 0.4 // Increased for variety
+  let frequency_penalty = 0.7 // Much higher to prevent repetitive phrases
   
   // Adjust temperature based on personality traits
   
@@ -520,6 +548,7 @@ export function generateModelParameters(settings: PersonalitySettings): {
     temperature,
     presence_penalty,
     frequency_penalty,
-    top_p: 0.9
+    top_p: 0.9,
+    repetition_penalty: 1.2 // For Llama models - penalize exact repetitions
   }
 } 
