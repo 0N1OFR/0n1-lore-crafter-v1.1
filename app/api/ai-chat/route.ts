@@ -105,6 +105,15 @@ interface ChatRequest {
   responseStyle?: string
 }
 
+// New interface for character creation chat
+interface CharacterCreationChatRequest {
+  message: string
+  characterData: any
+  currentStep: string
+  subStep?: string | null
+  messages: Array<{ role: string; content: string }>
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Check IP-based rate limit first (shared across all chat endpoints)
@@ -124,7 +133,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { message, nftId, memoryProfile, provider, model = 'gpt-4o', enhancedPersonality = false, responseStyle = "dialogue" }: ChatRequest = await request.json()
+    const body = await request.json()
+    
+    // Check if this is a character creation chat request (simpler format)
+    if (body.characterData && body.currentStep && !body.memoryProfile) {
+      return handleCharacterCreationChat(body as CharacterCreationChatRequest)
+    }
+    
+    // Otherwise handle as regular chat request
+    const { message, nftId, memoryProfile, provider, model = 'gpt-4o', enhancedPersonality = false, responseStyle = "dialogue" }: ChatRequest = body
 
     if (!message || !nftId || !memoryProfile || !provider) {
       return NextResponse.json(
@@ -625,6 +642,70 @@ Within the constraints of the response format above, express your personality au
 
   const completion = await makeAPICallWithRetry(client, completionParams)
   return completion.choices[0]?.message?.content || "I'm having trouble responding right now."
+}
+
+// Handler for character creation chat (simpler version without full memory context)
+async function handleCharacterCreationChat(request: CharacterCreationChatRequest): Promise<NextResponse> {
+  const { message, characterData, currentStep, subStep, messages } = request
+  
+  try {
+    if (!openai) {
+      throw new Error('OpenAI client not configured')
+    }
+
+    // Build a simple context for character creation
+    let context = `You are an AI assistant helping to create a character for the 0N1 Force collection.
+
+Current Character Data:
+- Name: ${characterData.soulName || "Not yet named"}
+- Archetype: ${characterData.archetype || "Not yet defined"}
+- Step: ${currentStep}${subStep ? ` - ${subStep}` : ''}
+
+Character Details So Far:`
+
+    if (characterData.background) context += `\n- Background: ${characterData.background}`
+    if (characterData.personalityProfile) context += `\n- Personality: ${characterData.personalityProfile.description}`
+    if (characterData.hopes) context += `\n- Hopes: ${characterData.hopes}`
+    if (characterData.fears) context += `\n- Fears: ${characterData.fears}`
+
+    context += `\n\nConversation History:`
+    messages.slice(-3).forEach(msg => {
+      context += `\n${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? '...' : ''}`
+    })
+
+    context += `\n\nHelp the user develop their character for the "${currentStep}" step. Be creative, helpful, and stay within the cyberpunk anime fantasy theme of 0N1 Force.`
+
+    // Use simpler parameters for character creation
+    const response = await makeAPICallWithRetry(openai, {
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: context },
+        { role: 'user', content: message }
+      ],
+      temperature: 0.8,
+      max_tokens: 500,
+      presence_penalty: 0.3,
+      frequency_penalty: 0.3
+    })
+
+    return NextResponse.json({ response: response.choices[0].message.content || "" })
+    
+  } catch (error: any) {
+    console.error('Character creation chat error:', error)
+    
+    let errorMessage = error.message || "Failed to get AI response"
+    
+    if (error.message?.includes('Rate limit exceeded')) {
+      errorMessage = "Too many requests. Please wait a moment and try again."
+    } else if (error.message?.includes('insufficient_quota')) {
+      errorMessage = "OpenAI quota exceeded. Please try again later."
+    }
+    
+    return NextResponse.json(
+      { error: errorMessage },
+      { status: 500 }
+    )
+  }
 }
 
 // Anthropic support will be added later

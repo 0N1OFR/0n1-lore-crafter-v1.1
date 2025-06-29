@@ -94,6 +94,7 @@ export function AiChat({ characterData, currentStep, subStep = null }: AiChatPro
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          message: userMessage,
           characterData,
           currentStep,
           subStep,
