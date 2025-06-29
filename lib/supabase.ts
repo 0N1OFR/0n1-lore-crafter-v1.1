@@ -7,20 +7,33 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env
 // Server-side only environment variables
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
+// Check if the URL is valid (not a placeholder)
+const isValidUrl = (url: string | undefined): boolean => {
+  if (!url) return false
+  try {
+    new URL(url)
+    return !url.includes('placeholder')
+  } catch {
+    return false
+  }
+}
+
 // Validate required environment variables
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase environment variables not found. Supabase functionality will be disabled.')
+const hasValidSupabaseConfig = isValidUrl(supabaseUrl) && supabaseAnonKey && supabaseAnonKey !== 'placeholder'
+
+if (!hasValidSupabaseConfig) {
+  console.warn('Supabase environment variables not found or are placeholders. Supabase functionality will be disabled.')
 }
 
 // Regular client for client-side operations (safe to use in browser)
-export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = hasValidSupabaseConfig
+  ? createClient(supabaseUrl!, supabaseAnonKey!)
   : null
 
 // Admin client for server-side operations that need elevated permissions
 // This should only be used on the server side
-export const supabaseAdmin = typeof window === 'undefined' && supabaseUrl && supabaseServiceRoleKey
-  ? createClient(supabaseUrl, supabaseServiceRoleKey)
+export const supabaseAdmin = typeof window === 'undefined' && hasValidSupabaseConfig && supabaseServiceRoleKey && supabaseServiceRoleKey !== 'placeholder'
+  ? createClient(supabaseUrl!, supabaseServiceRoleKey)
   : null
 
 // Database types for TypeScript support
