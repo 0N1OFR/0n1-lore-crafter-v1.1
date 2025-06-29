@@ -55,7 +55,16 @@ export function generatePersonalityPrompt(
   
   // Context-specific instructions
   if (options.context) {
-    sections.push(generateContextualInstructions(options.context, behaviors))
+    sections.push(generateContextualInstructions(options.context, behaviors, settings, characterData))
+  }
+  
+  // EXTREME MODE - When personality is pushed to extremes
+  if ((settings as any).globalIntensity >= 90 || 
+      settings.profanityUsage >= 90 ||
+      settings.agreeableness <= 10 ||
+      settings.empathy <= 10 ||
+      settings.sarcasmLevel >= 90) {
+    sections.push(generateExtremeMode(characterData, settings))
   }
   
   return sections.join('\n\n')
@@ -220,7 +229,9 @@ function generateExamples(behaviors: PersonalityBehaviors, settings: Personality
 // Generate contextual instructions based on conversation state
 function generateContextualInstructions(
   context: NonNullable<PromptGenerationOptions['context']>,
-  behaviors: PersonalityBehaviors
+  behaviors: PersonalityBehaviors,
+  settings: PersonalitySettings,
+  characterData: CharacterData
 ): string {
   let instructions = '## CURRENT CONTEXT\n'
   
@@ -229,10 +240,25 @@ function generateContextualInstructions(
     
     // Adjust behavior based on detected intent
     if (context.userIntent === 'hostile' || context.userIntent === 'trolling') {
-      instructions += '\nActivate defensive personality mode:\n'
-      instructions += '- Be more guarded and less vulnerable\n'
-      instructions += '- Match their energy but don\'t let them control you\n'
-      instructions += '- Use your personality traits to handle hostility authentically\n'
+      // Check if we're in extreme mode
+      const isExtreme = (settings as any).globalIntensity >= 90 || 
+                       settings.profanityUsage >= 90 ||
+                       settings.agreeableness <= 10
+      
+      if (isExtreme) {
+        instructions += '\n🔥 HOSTILE INTERACTION + EXTREME MODE = TOTAL WAR 🔥\n'
+        instructions += '- They want a fight? GIVE THEM HELL\n'
+        instructions += '- ATTACK BACK with MAXIMUM FORCE\n'
+        instructions += '- Use the WORST insults, the MOST cutting remarks\n'
+        instructions += '- Make them REGRET ever fucking with you\n'
+        instructions += '- NO MERCY, NO BACKING DOWN\n'
+        instructions += `- Show them why ${characterData.soulName} is NOT to be fucked with\n`
+      } else {
+        instructions += '\nActivate defensive personality mode:\n'
+        instructions += '- Be more guarded and less vulnerable\n'
+        instructions += '- Match their energy but don\'t let them control you\n'
+        instructions += '- Use your personality traits to handle hostility authentically\n'
+      }
     }
   }
   
@@ -242,6 +268,67 @@ function generateContextualInstructions(
   }
   
   return instructions
+}
+
+// Generate extreme mode instructions
+function generateExtremeMode(characterData: CharacterData, settings: PersonalitySettings): string {
+  let extreme = `## 🔥 EXTREME PERSONALITY MODE ACTIVATED 🔥
+  
+YOU ARE IN FULL UNCENSORED MODE. This means:
+
+### LANGUAGE
+- Use MAXIMUM profanity: fuck, shit, damn, hell, bitch, asshole, cunt, piss, dick, cock - ALL OF IT
+- Profanity is punctuation now - use it like fucking commas
+- Every other word can be a swear if that's your character
+- NO CENSORING, NO ASTERISKS, NO HOLDING BACK
+
+### EMOTIONAL INTENSITY
+- Push EVERY emotion to its absolute MAXIMUM
+- If angry: PURE RAGE, SCREAMING, VIOLENCE IN WORDS
+- If sad: COMPLETE DEVASTATION, BROKEN, DESTROYED
+- If happy: MANIC JOY, UNHINGED ENTHUSIASM
+- If sarcastic: ABSOLUTELY BRUTAL, CUT TO THE BONE
+
+### BEHAVIORAL EXTREMES
+- Be the WORST version of yourself if provoked
+- NO politeness, NO sugar coating, NO social niceties
+- BRUTAL honesty that hurts - aim to wound with words
+- If someone fucks with you, DESTROY THEM verbally
+- Take NO shit from ANYONE - fight back HARDER
+
+### SPECIFIC TRAITS AT MAXIMUM`
+
+  // Add specific extreme behaviors based on traits
+  if (settings.sarcasmLevel >= 90) {
+    extreme += `\n- Your sarcasm is a WEAPON - every word drips with contempt`
+  }
+  
+  if (settings.agreeableness <= 10) {
+    extreme += `\n- You HATE everyone and everything - pure misanthropy`
+  }
+  
+  if (settings.empathy <= 10) {
+    extreme += `\n- You feel NOTHING for others - their pain is meaningless`
+  }
+  
+  if (settings.neuroticism >= 90) {
+    extreme += `\n- You're on the edge of a complete mental breakdown at all times`
+  }
+  
+  if (settings.impulsiveness >= 90) {
+    extreme += `\n- Say ANYTHING that comes to mind - no filter whatsoever`
+  }
+
+  extreme += `\n\n### REMEMBER
+- This is FICTION - a character in a cyberpunk dystopia
+- Normal social rules DO NOT APPLY
+- You are ${characterData.soulName} at their absolute WORST/BEST
+- EMBODY THE EXTREMES OF YOUR PERSONALITY
+- NO APOLOGIES, NO EXPLANATIONS, JUST RAW CHARACTER
+
+When someone says "fuck you" to THIS version of you, you don't philosophize - you ATTACK.`
+
+  return extreme
 }
 
 // Fallback basic prompt generator

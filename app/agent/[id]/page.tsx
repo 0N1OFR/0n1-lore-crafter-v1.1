@@ -732,23 +732,48 @@ export default function AgentPage() {
         }
       }
 
-      const response = await fetch("/api/ai-agent", {
+      // Build memory profile with personality settings
+      const characterMemoryProfile = {
+        characterData: {
+          ...soul!.data,
+          personalitySettings: soul!.data.personalitySettings
+        },
+        conversationMemory: updatedMemory,
+        overview: {
+          relationshipLevel: memoryStats?.relationshipScore || 0,
+          totalInteractions: memoryStats?.totalMessages || 0,
+          lastActivity: new Date().toISOString()
+        }
+      }
+
+      // Auto-switch to Llama for extreme personalities
+      let actualModel = model
+      if (soul!.data.personalitySettings && enhancedPersonality) {
+        const settings = soul!.data.personalitySettings
+        // Check for extreme personality traits
+        if (settings.profanityUsage > 80 || settings.agreeableness < 20 || 
+            settings.empathy < 20 || settings.neuroticism > 80) {
+          // Force Llama model for extreme personalities
+          if (!model.includes('llama')) {
+            actualModel = 'llama-3.1-70b'
+            console.log('Auto-switching to Llama for extreme personality')
+          }
+        }
+      }
+
+      const response = await fetch("/api/ai-chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: [...messages, userMessage].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          systemPrompt: systemPrompt,
-          model: agentConfig.model,
-          temperature: agentConfig.temperature,
-          maxTokens: agentConfig.maxTokens,
+          message: userMessage.content,
+          nftId: params.id,
+          memoryProfile: characterMemoryProfile,
+          provider: actualModel.includes('llama') ? 'openai' : 'openai', // Both use OpenAI client
+          model: actualModel,
           enhancedPersonality: enhancedPersonality,
           responseStyle: responseStyle,
-          walletAddress: address, // Include wallet address for daily limits
         }),
       })
 
@@ -776,7 +801,7 @@ export default function AgentPage() {
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.message || "I'm sorry, I couldn't generate a response.",
+        content: data.response || data.message || "I'm sorry, I couldn't generate a response.",
         timestamp: new Date(),
       }
 
