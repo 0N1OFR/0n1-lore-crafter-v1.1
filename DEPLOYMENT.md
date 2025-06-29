@@ -68,4 +68,4 @@ vercel
 
 - If NFTs don't load: Check OPENSEA_API_KEY
 - If AI chat fails: Check OPENAI_API_KEY or TOGETHER_API_KEY
-- If using extreme personalities: Llama models (TOGETHER_API_KEY) recommended 
+- If using extreme personalities: Llama models (TOGETHER_API_KEY) recommended # Deploy: AI chat fix Sun Jun 29 02:01:56 PDT 2025
