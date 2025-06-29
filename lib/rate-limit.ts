@@ -228,6 +228,30 @@ export function checkOpenSeaRateLimit(request: NextRequest): {
   return { ...result, ip }
 }
 
+// Enhanced rate limiting for OpenSea endpoints with authentication awareness
+export function checkOpenSeaRateLimitEnhanced(request: NextRequest, isAuthenticated: boolean = false): {
+  allowed: boolean
+  remaining: number
+  resetTime: number
+  ip: string
+  enhanced: boolean
+} {
+  const ip = getClientIP(request)
+  
+  // Use higher limits for authenticated users
+  const maxRequests = isAuthenticated ? 100 : RATE_LIMITS.OPENSEA_ENDPOINTS.requests // 100 vs 30
+  const identifier = isAuthenticated ? `opensea_auth:${ip}` : `opensea:${ip}`
+  
+  const result = checkRateLimit(
+    identifier, 
+    nonChatRequestCounts, 
+    maxRequests,
+    RATE_LIMITS.OPENSEA_ENDPOINTS.window
+  )
+  
+  return { ...result, ip, enhanced: isAuthenticated }
+}
+
 // Rate limiting for ownership endpoints
 export function checkOwnershipRateLimit(request: NextRequest): {
   allowed: boolean

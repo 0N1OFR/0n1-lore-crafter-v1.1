@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkOwnershipRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
-import { migrateLocalStorageToSupabase, setCurrentWalletAddress } from '@/lib/storage-supabase'
+import { saveSoul } from '@/lib/storage'
+import { withOptionalAuth, getRequestWalletAddress } from '@/lib/auth-middleware'
 
-export async function POST(request: NextRequest) {
+export const POST = withOptionalAuth(async (request: NextRequest, sessionInfo) => {
   // Check rate limit first
   const rateLimitResult = checkOwnershipRateLimit(request)
   if (!rateLimitResult.allowed) {
@@ -21,15 +22,35 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { walletAddress, characterData } = await request.json()
+    // Try to get wallet address from authentication first, then fallback to body parameter
+    let walletAddress = await getRequestWalletAddress(request, sessionInfo)
+    let characterData = null
+    
+    // If not authenticated, try to get from request body (legacy mode)
+    if (!walletAddress) {
+      const body = await request.json()
+      walletAddress = body.walletAddress
+      characterData = body.characterData
+    } else {
+      // If authenticated, get character data from body
+      const body = await request.json()
+      characterData = body.characterData
+    }
 
     // Input validation
     if (!walletAddress) {
       return NextResponse.json(
-        { error: "Wallet address is required" }, 
+        { 
+          error: "Authentication required",
+          message: "Please authenticate with your wallet or provide a valid walletAddress in request body",
+          authenticationUrl: '/api/auth/challenge'
+        }, 
         { status: 400 }
       )
     }
+
+    console.log(`🔐 Migration - Authentication status: ${sessionInfo.isAuthenticated ? 'AUTHENTICATED' : 'LEGACY_MODE'}`)
+    console.log(`📦 Migrating data for wallet: ${walletAddress}`)
 
     // Validate Ethereum address format
     if (!/^0x[a-fA-F0-9]{40}$/i.test(walletAddress)) {
@@ -41,39 +62,28 @@ export async function POST(request: NextRequest) {
 
     // If specific character data is provided, migrate just that character
     if (characterData) {
-      setCurrentWalletAddress(walletAddress)
-      
-      // Import the storeSoul function and migrate single character
-      const { storeSoul } = await import('@/lib/storage-supabase')
-      const soulId = await storeSoul(characterData)
+      // Migrate single character
+      const soulData = {
+        data: characterData,
+        timestamp: Date.now()
+      }
+      const success = await saveSoul(soulData, walletAddress)
       
       return NextResponse.json({ 
-        success: true,
-        migratedCount: 1,
-        soulId,
-        message: "Character migrated successfully"
+        success,
+        migratedCount: success ? 1 : 0,
+        message: success ? "Character migrated successfully" : "Failed to migrate character",
+        authenticated: sessionInfo.isAuthenticated,
+        walletAddress
       })
     }
 
-    // Otherwise, migrate all localStorage data for this wallet
-    console.log(`Starting migration for wallet: ${walletAddress}`)
-    
-    const migrationResult = await migrateLocalStorageToSupabase(walletAddress)
-    
-    if (migrationResult.success) {
-      return NextResponse.json({
-        success: true,
-        migratedCount: migrationResult.migratedCount,
-        message: `Successfully migrated ${migrationResult.migratedCount} characters to Supabase`
-      })
-    } else {
+    // For bulk migration, we would need to implement localStorage reading
+    // For now, return an error since we can't access localStorage server-side
       return NextResponse.json({
         success: false,
-        migratedCount: migrationResult.migratedCount,
-        errors: migrationResult.errors,
-        message: `Migration completed with errors. ${migrationResult.migratedCount} characters migrated.`
-      }, { status: 207 }) // 207 Multi-Status for partial success
-    }
+      error: "Bulk migration not supported server-side. Please migrate characters individually from the client."
+    }, { status: 400 })
 
   } catch (error) {
     console.error("Migration error:", error)
@@ -86,4 +96,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-} 
+}) 
