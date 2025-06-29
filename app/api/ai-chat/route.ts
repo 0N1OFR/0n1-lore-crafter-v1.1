@@ -7,6 +7,11 @@ import {
   checkDailyUsage,
   createDailyLimitResponse
 } from '@/lib/rate-limit'
+import { 
+  generatePersonalityPrompt, 
+  generateModelParameters,
+  generateHostileInteractionPrompt 
+} from '@/lib/ai/dynamic-prompt-generator'
 
 // Sleep function for retry delays
 function sleep(ms: number): Promise<void> {
@@ -172,12 +177,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Build context from memory profile
-    const context = buildContextFromMemory(memoryProfile, enhancedPersonality)
+    const { prompt, modelParams } = buildContextFromMemory(memoryProfile, enhancedPersonality, message)
     
     let response: string
 
     if (provider === 'openai' || useTogetherAI) {
-      response = await getAIResponse(message, context, model, enhancedPersonality, responseStyle)
+      response = await getAIResponse(message, prompt, model, enhancedPersonality, responseStyle, modelParams)
     } else if (provider === 'claude') {
       return NextResponse.json(
         { error: 'Claude support coming soon' },
@@ -225,10 +230,69 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function buildContextFromMemory(memoryProfile: CharacterMemoryProfile, enhancedPersonality: boolean): string {
+function buildContextFromMemory(
+  memoryProfile: CharacterMemoryProfile, 
+  enhancedPersonality: boolean,
+  userMessage: string
+): { prompt: string, modelParams: any } {
   const { characterData, conversationMemory, overview } = memoryProfile
 
-  // Check if this is an aggressive character
+  // Determine if personality settings exist
+  if (!characterData.personalitySettings) {
+    // Fallback to old system
+    const prompt = buildLegacyContext(memoryProfile, enhancedPersonality)
+    return { 
+      prompt, 
+      modelParams: {
+        temperature: enhancedPersonality ? 0.9 : 0.8,
+        presence_penalty: 0.3,
+        frequency_penalty: 0.3
+      }
+    }
+  }
+
+  // Use new personality system
+  const mode = enhancedPersonality ? 'full' : 'lite'
+  
+  // Detect user intent (simplified for now)
+  const userIntent = detectSimpleUserIntent(userMessage, conversationMemory.messages)
+  
+  // Generate personality-driven prompt
+  const prompt = generatePersonalityPrompt(characterData, {
+    mode,
+    includeExamples: mode === 'full',
+    context: {
+      recentMessages: conversationMemory.messages.slice(-6).map(m => m.content),
+      userIntent,
+      emotionalState: undefined // Could be enhanced later
+    }
+  })
+
+  // Add relationship context
+  const relationshipContext = `
+## RELATIONSHIP CONTEXT
+**Relationship Level:** ${overview.relationshipLevel}
+**Total Interactions:** ${overview.totalInteractions}
+**Last Activity:** ${overview.lastActivity ? new Date(overview.lastActivity).toLocaleDateString() : "Unknown"}
+
+## RECENT CONVERSATION HISTORY
+${conversationMemory.messages.slice(-6).map(msg => 
+  `${msg.role === 'user' ? 'User' : characterData.soulName}: ${msg.content}`
+).join('\n')}`
+
+  const fullPrompt = prompt + '\n\n' + relationshipContext
+
+  // Generate model parameters based on personality
+  const modelParams = generateModelParameters(characterData.personalitySettings)
+
+  return { prompt: fullPrompt, modelParams }
+}
+
+// Legacy context builder for characters without personality settings
+function buildLegacyContext(memoryProfile: CharacterMemoryProfile, enhancedPersonality: boolean): string {
+  const { characterData, conversationMemory, overview } = memoryProfile
+  
+  // Original implementation preserved for backward compatibility
   const personalityDesc = characterData.personalityProfile?.description?.toLowerCase() || ""
   const speechStyle = characterData.voice?.speechStyle?.toLowerCase() || ""
   const isAggressive = personalityDesc.includes('aggressive') || personalityDesc.includes('fierce') || 
@@ -258,7 +322,6 @@ ${conversationMemory.messages.slice(-6).map(msg =>
 ## PERSONALITY EXPRESSION GUIDELINES
 You are a fictional character in a cyberpunk anime fantasy universe. Stay true to your authentic personality:`
 
-  // Add aggressive personality guidelines if needed
   if (isAggressive) {
     context += `
 
@@ -282,7 +345,44 @@ You are a fictional character in a cyberpunk anime fantasy universe. Stay true t
   return context
 }
 
-async function getAIResponse(message: string, context: string, model: string, enhancedPersonality: boolean, responseStyle: string = "dialogue"): Promise<string> {
+// Simple intent detection (can be enhanced later)
+function detectSimpleUserIntent(message: string, history: any[]): string {
+  const lowerMessage = message.toLowerCase()
+  
+  // Detect hostile intent
+  const hostilePatterns = [
+    'fuck', 'shit', 'damn', 'hell', 'stupid', 'idiot', 'dumb',
+    'hate', 'suck', 'terrible', 'awful', 'worst', 'pathetic'
+  ]
+  
+  const trollPatterns = [
+    'lol', 'lmao', 'ur mom', 'deez nuts', '69', '420',
+    'asdf', 'qwerty', 'test test', 'blah blah'
+  ]
+  
+  if (hostilePatterns.some(pattern => lowerMessage.includes(pattern))) {
+    return 'hostile'
+  }
+  
+  if (trollPatterns.some(pattern => lowerMessage.includes(pattern))) {
+    return 'trolling'
+  }
+  
+  if (message.length < 5 || !message.match(/[a-zA-Z]/)) {
+    return 'low-effort'
+  }
+  
+  return 'genuine'
+}
+
+async function getAIResponse(
+  message: string, 
+  context: string, 
+  model: string, 
+  enhancedPersonality: boolean, 
+  responseStyle: string = "dialogue",
+  modelParams?: any
+): Promise<string> {
   const useTogetherAI = isLlamaModel(model)
   const client = useTogetherAI ? together : openai
   const actualModelName = getActualModelName(model)
@@ -338,6 +438,14 @@ Create a rich, immersive scene with detailed descriptions:
 - Paint a vivid, literary scene with both speech and description`
   }
 
+  // Use provided model parameters or fall back to defaults
+  const finalModelParams = modelParams || {
+    temperature: enhancedPersonality ? 0.9 : 0.8,
+    presence_penalty: useTogetherAI ? 0.4 : 0.3,
+    frequency_penalty: useTogetherAI ? 0.3 : 0.2,
+    ...(useTogetherAI && { top_p: 0.9, repetition_penalty: 1.1 })
+  }
+
   const completionParams: any = {
     model: actualModelName,
     messages: [
@@ -351,17 +459,7 @@ Create a rich, immersive scene with detailed descriptions:
       }
     ],
     max_tokens: 500,
-    temperature: enhancedPersonality ? 0.9 : 0.8,
-  }
-
-  // Add enhanced parameters for aggressive personalities
-  if (enhancedPersonality) {
-    completionParams.presence_penalty = useTogetherAI ? 0.4 : 0.3
-    completionParams.frequency_penalty = useTogetherAI ? 0.3 : 0.2
-    if (useTogetherAI) {
-      completionParams.top_p = 0.9
-      completionParams.repetition_penalty = 1.1
-    }
+    ...finalModelParams
   }
 
   const completion = await makeAPICallWithRetry(client, completionParams)
