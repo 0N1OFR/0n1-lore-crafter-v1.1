@@ -108,4 +108,4 @@ MIT License - feel free to use this project for your own NFT communities!
 
 ---
 
-**Built with ❤️ for the 0N1 Force community** 
+**Built with ❤️ for the 0N1 Force community** # Trigger Vercel deployment
