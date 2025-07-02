@@ -301,6 +301,8 @@ export interface UnifiedCharacter {
   displayName: string
   // User preference storage
   preferredView?: 'force' | 'frame'
+  hasSoul?: boolean
+  soul?: any
 }
 
 // Enhanced CharacterData to support collection awareness

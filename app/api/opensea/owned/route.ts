@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { checkOpenSeaRateLimitEnhanced, createRateLimitResponse } from '@/lib/rate-limit'
 import { COLLECTIONS, CollectionKey, getAllCollectionKeys } from '@/lib/collection-config'
 import { UnifiedCharacter, UnifiedCharacterResponse } from '@/lib/types'
-import { getAllSouls } from '@/lib/storage'
+import { getStoredSouls } from '@/lib/storage'
 import { withOptionalAuth, getRequestWalletAddress } from '@/lib/auth-middleware'
 
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY
@@ -253,7 +253,7 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
 
     // Include souls data
     console.log('📦 Using localStorage: Getting all souls locally')
-    const existingSouls = await getAllSouls()
+    const existingSouls = getStoredSouls()
 
     // Log character map contents for debugging
     console.log('📋 Character Map Contents:', Array.from(characterMap.values()).map(char => ({
@@ -271,11 +271,15 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
     console.log(`🔍 Character map values (raw): ${JSON.stringify(Array.from(characterMap.values()))}`)
 
     const characters = Array.from(characterMap.values()).map(char => {
-      const existingSoul = existingSouls.find(soul => soul.tokenId === char.tokenId)
+      const existingSoul = existingSouls.find(soul => soul.data.pfpId === char.tokenId)
+      const soulData = existingSoul ? {
+        tokenId: existingSoul.data.pfpId,
+        ...existingSoul.data
+      } : null
       return {
         ...char,
         hasSoul: !!existingSoul,
-        soul: existingSoul || null
+        soul: soulData
       }
     })
 
@@ -330,17 +334,20 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
     // Fallback: try to return existing souls
     try {
       console.log('🔄 Attempting fallback: returning existing souls only')
-      const existingSouls = await getAllSouls()
+      const existingSouls = getStoredSouls()
       
       const fallbackCharacters = existingSouls.map(soul => ({
-        tokenId: soul.tokenId,
+        tokenId: soul.data.pfpId,
         forceImageUrl: null,
         frameImageUrl: null,
         hasForce: false,
         hasFrame: false,
         hasSoul: true,
-        soul,
-        displayName: `0N1 #${soul.tokenId}`
+        soul: {
+          tokenId: soul.data.pfpId,
+          ...soul.data
+        },
+        displayName: `0N1 #${soul.data.pfpId}`
       }))
 
       return NextResponse.json({

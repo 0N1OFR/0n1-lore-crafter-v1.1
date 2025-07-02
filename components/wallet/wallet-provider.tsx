@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
-import { setCurrentWalletAddress } from "@/lib/storage-supabase"
+// Wallet address is now handled directly in components
 
 // Extend Window interface to include ethereum
 declare global {
@@ -54,8 +54,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (savedAddress) {
       setAddress(savedAddress)
       setIsConnected(true)
-      // Set wallet address for Supabase context
-      setCurrentWalletAddress(savedAddress)
+      // Wallet address is now managed by React context
       console.log("Restored wallet connection from localStorage:", savedAddress)
     }
   }, [])
@@ -73,8 +72,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         // User switched accounts
         setAddress(accounts[0])
         localStorage.setItem("walletAddress", accounts[0])
-        // Update Supabase context
-        setCurrentWalletAddress(accounts[0])
+        // Wallet address updated in React context
         console.log("Updated wallet address:", accounts[0])
       }
     }
@@ -107,8 +105,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setAddress(accounts[0])
         setIsConnected(true)
         localStorage.setItem("walletAddress", accounts[0])
-        // Set wallet address for Supabase context
-        setCurrentWalletAddress(accounts[0])
+        // Wallet address set in React context
         console.log("Wallet connected:", accounts[0])
       } else {
         setError("No accounts returned from MetaMask. Please check your wallet.")
@@ -135,8 +132,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setAddress(null)
     setIsConnected(false)
     localStorage.removeItem("walletAddress")
-    // Clear Supabase context
-    setCurrentWalletAddress(null)
+    // Wallet address cleared from React context
     console.log("Wallet disconnected, localStorage cleared")
 
     // Force a page refresh to ensure clean state
