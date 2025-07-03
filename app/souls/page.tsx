@@ -52,13 +52,14 @@ export default function SoulsPage() {
         }
         
         const ownedNftData = await response.json()
-        setOwnedNfts(ownedNftData.nfts || [])
+        const characters = ownedNftData.characters || []
+        setOwnedNfts(characters)
 
         // Get all stored souls
         const allStoredSouls = getStoredSouls()
         
         // Filter souls to only show ones for NFTs the user actually owns
-        const ownedTokenIds = new Set(ownedNftData.nfts?.map((nft: any) => nft.identifier) || [])
+        const ownedTokenIds = new Set(characters.map((char: any) => char.tokenId))
         const filteredSouls = allStoredSouls.filter(soul => 
           ownedTokenIds.has(soul.data.pfpId)
         )
