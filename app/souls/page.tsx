@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { getStoredSouls, deleteSoul, type StoredSoul } from "@/lib/storage"
+import { getStoredSouls, deleteSoul, type StoredSoul, initializeHybridStorage, setCurrentWalletAddress } from "@/lib/storage-wrapper"
 import { Download, Trash2, Bot, ArrowLeft, Edit, Search, MessageCircle, User } from "lucide-react"
 import { SafeNftImage } from "@/components/safe-nft-image"
 import { useRouter } from "next/navigation"
@@ -43,6 +43,10 @@ export default function SoulsPage() {
         router.push("/?connect=true")
         return
       }
+
+      // Initialize hybrid storage with wallet address
+      setCurrentWalletAddress(address)
+      initializeHybridStorage(address).catch(console.error)
 
       try {
         // First, fetch owned NFTs from OpenSea

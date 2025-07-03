@@ -4,14 +4,14 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getSoulByNftId, type StoredSoul } from "@/lib/storage"
+import { getSoulByNftId, type StoredSoul } from "@/lib/storage-wrapper"
 import { ArrowLeft, MessageCircle, Edit, Download, Trash2, ExternalLink } from "lucide-react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { CharacterDossier } from "@/components/character-dossier"
 import { getOpenSeaNftLink } from "@/lib/api"
 import { UnifiedSoulHeader } from "@/components/unified-soul-header"
-import { deleteSoul } from "@/lib/storage"
+import { deleteSoul } from "@/lib/storage-wrapper"
 
 export default function ProfilePage() {
   const params = useParams()

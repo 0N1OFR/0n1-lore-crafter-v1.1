@@ -8,7 +8,7 @@ import type { UnifiedCharacter } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { UnifiedCharacterCard } from "@/components/unified-character-card"
-import { getStoredSouls } from "@/lib/storage"
+import { getStoredSouls } from "@/lib/storage-wrapper"
 
 interface OwnedNftsProps {
   onSelectNft: (tokenId: string) => void

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { getSoulByNftId, type StoredSoul } from "@/lib/storage"
+import { getSoulByNftId, type StoredSoul } from "@/lib/storage-wrapper"
 import { SoulEditor } from "@/components/soul-editor"
 import { ArrowLeft } from 'lucide-react'
 

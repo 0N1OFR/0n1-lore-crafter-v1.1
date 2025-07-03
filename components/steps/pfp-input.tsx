@@ -11,7 +11,7 @@ import { SafeNftImage } from "@/components/safe-nft-image"
 import { WalletConnectButton } from "@/components/wallet/wallet-connect-button"
 import { OwnedNfts } from "@/components/wallet/owned-nfts"
 import { useWallet } from "@/components/wallet/wallet-provider"
-import { soulExistsForNft } from "@/lib/storage"
+import { soulExistsForNft } from "@/lib/storage-wrapper"
 import { useRouter } from "next/navigation"
 import { NftTraitsSidebar } from "@/components/nft-traits-sidebar"
 

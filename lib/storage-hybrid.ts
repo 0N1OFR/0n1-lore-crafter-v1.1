@@ -2,7 +2,10 @@
 import type { CharacterData } from "./types"
 import { supabase } from "./supabase"
 import * as localStorage from "./storage"
-import { StoredSoul } from "./storage"
+import type { StoredSoul } from "./storage"
+
+// Re-export the StoredSoul type
+export type { StoredSoul }
 
 // Configuration
 const SYNC_INTERVAL = 5 * 60 * 1000 // Sync every 5 minutes

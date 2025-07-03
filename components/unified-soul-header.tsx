@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { getOpenSeaNftLink } from "@/lib/api"
-import type { StoredSoul } from "@/lib/storage"
+import type { StoredSoul } from "@/lib/storage-wrapper"
 
 interface UnifiedSoulHeaderProps {
   soul: StoredSoul

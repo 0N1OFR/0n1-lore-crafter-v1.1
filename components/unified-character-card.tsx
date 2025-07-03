@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Eye, Palette, Sparkles, Lock } from "lucide-react"
 import { useState } from "react"
 import { UnifiedCharacter } from "@/lib/types"
-import { storeSoul } from "@/lib/storage"
+import { storeSoul } from "@/lib/storage-wrapper"
 import { useToast } from "@/hooks/use-toast"
 
 interface UnifiedCharacterCardProps {
