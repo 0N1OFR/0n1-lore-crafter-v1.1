@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { getSoulByNftId, updateSoul, type StoredSoul } from "@/lib/storage"
+import { getSoulByNftId, updateSoul, type StoredSoul } from "@/lib/storage-wrapper"
 import { UnifiedSoulHeader } from "@/components/unified-soul-header"
 import { PersonalityDashboard } from "@/components/personality-dashboard"
 import { Button } from "@/components/ui/button"

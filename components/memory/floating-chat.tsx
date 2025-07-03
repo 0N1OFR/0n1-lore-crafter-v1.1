@@ -17,7 +17,7 @@ import {
   Save
 } from "lucide-react"
 import Image from "next/image"
-import type { StoredSoul } from "@/lib/storage"
+import type { StoredSoul } from "@/lib/storage-wrapper"
 import type { CharacterMemoryProfile } from "@/lib/memory-types"
 import { useWallet } from "@/components/wallet/wallet-provider"
 

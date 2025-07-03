@@ -14,7 +14,7 @@ import {
   Search
 } from "lucide-react"
 import Image from "next/image"
-import { getSoulByNftId, type StoredSoul } from "@/lib/storage"
+import { getSoulByNftId, type StoredSoul } from "@/lib/storage-wrapper"
 import { getCharacterMemories, saveCharacterMemories, createCharacterMemory } from "@/lib/memory"
 import { upgradeToEnhancedMemory } from "@/lib/memory-enhanced"
 import { useWallet } from "@/components/wallet/wallet-provider"

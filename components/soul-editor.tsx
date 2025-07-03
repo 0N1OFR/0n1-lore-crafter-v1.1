@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { storeSoul, type StoredSoul } from "@/lib/storage"
+import { storeSoul, type StoredSoul } from "@/lib/storage-wrapper"
 import type { CharacterData } from "@/lib/types"
 import { Save, X, AlertTriangle } from 'lucide-react'
 import Image from "next/image"
