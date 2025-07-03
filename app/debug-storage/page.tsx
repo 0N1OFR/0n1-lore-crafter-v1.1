@@ -1,115 +1,128 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getStoredSouls } from "@/lib/storage-wrapper"
-import { useWallet } from "@/components/wallet/wallet-provider"
+import { Button } from "@/components/ui/button"
+import { getStoredSouls, storeSoul } from "@/lib/storage-wrapper"
+import { ArrowLeft, RefreshCw, Save } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function DebugStoragePage() {
-  const { address } = useWallet()
-  const [localStorageData, setLocalStorageData] = useState<any>(null)
+  const router = useRouter()
   const [souls, setSouls] = useState<any[]>([])
   const [rawData, setRawData] = useState<string>("")
 
-  useEffect(() => {
-    loadStorageData()
-  }, [])
-
-  const loadStorageData = () => {
-    // Get raw localStorage data
-    const raw = localStorage.getItem("oni-souls")
-    setRawData(raw || "No data found")
-    
-    try {
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        setLocalStorageData(parsed)
-      }
-    } catch (error) {
-      console.error("Error parsing localStorage:", error)
-    }
-
-    // Get souls using the storage wrapper
+  const loadData = () => {
+    // Get from storage wrapper
     const storedSouls = getStoredSouls()
     setSouls(storedSouls)
+    
+    // Also get raw localStorage data
+    const raw = localStorage.getItem("oni-souls")
+    setRawData(raw || "No data in localStorage")
+    
+    console.log("🔍 Debug Storage Page - Loaded data:")
+    console.log("- Souls count:", storedSouls.length)
+    console.log("- Raw localStorage data:", raw)
   }
 
-  const clearLocalStorage = () => {
-    if (confirm("Are you sure you want to clear all localStorage data?")) {
-      localStorage.removeItem("oni-souls")
-      localStorage.removeItem("oni-souls-last-sync")
-      loadStorageData()
-    }
-  }
+  useEffect(() => {
+    loadData()
+  }, [])
 
-  const addTestSoul = () => {
+  const createTestSoul = () => {
     const testData = {
       pfpId: "9999",
-      soulName: "Test Soul " + Date.now(),
+      soulName: `Test Soul ${Date.now()}`,
+      traits: [],
       archetype: "Test Archetype",
       background: "Test Background",
-      traits: [],
-      imageUrl: "https://placeholder.com/test.jpg"
+      hopesFears: { hopes: "Test hopes", fears: "Test fears" },
+      personalityProfile: { description: "Test personality" },
+      motivations: { drives: "Test drives", goals: "Test goals", values: "Test values" },
+      relationships: { friends: "Test friends", rivals: "Test rivals", family: "Test family" },
+      worldPosition: { societalRole: "Test role", classStatus: "Test class", perception: "Test perception" },
+      voice: { speechStyle: "Test style", innerDialogue: "Test dialogue", uniquePhrases: "Test phrases" },
+      symbolism: { colors: "Test colors", items: "Test items", motifs: "Test motifs" },
+      powersAbilities: { powers: ["Test Power"], description: "Test description" }
     }
     
-    // Import storeSoul directly to test
-    import("@/lib/storage-wrapper").then(({ storeSoul }) => {
-      storeSoul(testData)
-      loadStorageData()
-    })
+    storeSoul(testData)
+    loadData()
   }
 
   return (
     <div className="min-h-screen bg-background p-4">
-      <div className="max-w-4xl mx-auto space-y-4">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Storage Debug</h1>
+          <Button onClick={() => router.back()} variant="outline">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+        </div>
+        
+        <div className="flex gap-2">
+          <Button onClick={loadData} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          <Button onClick={createTestSoul} variant="outline">
+            <Save className="mr-2 h-4 w-4" />
+            Create Test Soul
+          </Button>
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle>Storage Debug Information</CardTitle>
+            <CardTitle>Stored Souls Summary ({souls.length})</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="font-semibold">Wallet Address:</p>
-              <p className="text-sm text-muted-foreground">{address || "Not connected"}</p>
-            </div>
+          <CardContent>
+            {souls.length === 0 ? (
+              <p className="text-muted-foreground">No souls found</p>
+            ) : (
+              <div className="space-y-4">
+                {souls.map((soul, index) => (
+                  <div key={soul.id} className="p-4 border rounded-lg space-y-2">
+                    <div className="font-semibold">Soul #{index + 1}</div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">ID:</span> {soul.id}
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">NFT ID:</span> {soul.data.pfpId}
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Name:</span> {soul.data.soulName || "NO NAME"}
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Archetype:</span> {soul.data.archetype || "None"}
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Created:</span> {new Date(soul.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-sm text-muted-foreground">View Full Data</summary>
+                      <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto">
+                        {JSON.stringify(soul, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-            <div>
-              <p className="font-semibold">Souls from getStoredSouls():</p>
-              <p className="text-sm text-muted-foreground">Count: {souls.length}</p>
-              {souls.length > 0 && (
-                <pre className="mt-2 p-2 bg-black/50 rounded text-xs overflow-auto max-h-60">
-                  {JSON.stringify(souls, null, 2)}
-                </pre>
-              )}
-            </div>
-
-            <div>
-              <p className="font-semibold">Raw localStorage['oni-souls']:</p>
-              <pre className="mt-2 p-2 bg-black/50 rounded text-xs overflow-auto max-h-60">
-                {rawData}
-              </pre>
-            </div>
-
-            <div>
-              <p className="font-semibold">Parsed localStorage data:</p>
-              {localStorageData && (
-                <pre className="mt-2 p-2 bg-black/50 rounded text-xs overflow-auto max-h-60">
-                  {JSON.stringify(localStorageData, null, 2)}
-                </pre>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              <Button onClick={loadStorageData} variant="outline">
-                Refresh Data
-              </Button>
-              <Button onClick={addTestSoul} variant="outline">
-                Add Test Soul
-              </Button>
-              <Button onClick={clearLocalStorage} variant="destructive">
-                Clear All Storage
-              </Button>
-            </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Raw localStorage Data</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="p-4 bg-muted rounded overflow-auto text-xs">
+              {rawData}
+            </pre>
           </CardContent>
         </Card>
       </div>

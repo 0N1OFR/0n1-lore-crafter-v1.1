@@ -45,13 +45,19 @@ export function getSoulById(id: string): StoredSoul | null {
 
 // Store a new soul or update an existing one
 export function storeSoul(characterData: CharacterData): string {
+  console.log("🟣 STORAGE.TS - storeSoul called")
+  console.log("- pfpId:", characterData.pfpId)
+  console.log("- soulName:", characterData.soulName)
+  
   const souls = getStoredSouls()
+  console.log("- Current souls count:", souls.length)
 
   // Check if a soul already exists for this NFT
   const existingIndex = souls.findIndex((soul) => soul.data.pfpId === characterData.pfpId)
   const timestamp = new Date().toISOString()
   
   if (existingIndex >= 0) {
+    console.log("- Updating existing soul at index:", existingIndex)
     // Update existing soul
     const existingSoul = souls[existingIndex]
     const updatedSoul: StoredSoul = {
@@ -62,11 +68,14 @@ export function storeSoul(characterData: CharacterData): string {
     souls[existingIndex] = updatedSoul
     localStorage.setItem(STORAGE_KEY, JSON.stringify(souls))
     
+    console.log("✅ Soul updated in localStorage")
+    
     // Dispatch a storage event to notify other tabs/components
     window.dispatchEvent(new Event("storage"))
     
     return existingSoul.id
   } else {
+    console.log("- Creating new soul")
     // Add new soul
     const id = `${timestamp}-${characterData.pfpId}`
     const newSoul: StoredSoul = {
@@ -77,6 +86,9 @@ export function storeSoul(characterData: CharacterData): string {
     }
     souls.push(newSoul)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(souls))
+    
+    console.log("✅ New soul created with ID:", id)
+    console.log("- Total souls after save:", souls.length)
     
     // Dispatch a storage event to notify other tabs/components
     window.dispatchEvent(new Event("storage"))
