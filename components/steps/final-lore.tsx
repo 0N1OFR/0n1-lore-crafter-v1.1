@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,7 +14,9 @@ import { Download, ExternalLink, Save, BookOpen, Bot } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { storeSoul } from "@/lib/storage"
+import { storeSoul, initializeHybridStorage, setCurrentWalletAddress } from "@/lib/storage-hybrid"
+import { toast } from "sonner"
+import { useWallet } from "@/components/wallet/wallet-provider"
 
 interface FinalLoreProps {
   characterData: CharacterData
@@ -27,7 +29,16 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
   const [isSaving, setIsSaving] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   const router = useRouter()
+  const { address } = useWallet()
   const CONTRACT_ADDRESS = "0x3bf2922f4520a8ba0c2efc3d2a1539678dad5e9d" // 0N1 Force contract address
+
+  // Initialize hybrid storage with wallet address
+  useEffect(() => {
+    if (address) {
+      setCurrentWalletAddress(address)
+      initializeHybridStorage(address).catch(console.error)
+    }
+  }, [address])
 
   const handleSoulNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSoulName(e.target.value)
@@ -57,9 +68,14 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
     setIsSaving(true)
 
     try {
-      // Store the soul in localStorage
+      // Store the soul using hybrid storage
       storeSoul(characterData)
       setIsSaved(true)
+
+      // Show success toast
+      toast.success("Soul saved successfully! It will sync to cloud storage automatically.", {
+        description: "Your soul is saved locally and will sync when connected."
+      })
 
       // Show success state for 2 seconds
       setTimeout(() => {
@@ -67,6 +83,9 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
       }, 2000)
     } catch (error) {
       console.error("Error saving soul:", error)
+      toast.error("Failed to save soul", {
+        description: "Please try again."
+      })
     } finally {
       setIsSaving(false)
     }
