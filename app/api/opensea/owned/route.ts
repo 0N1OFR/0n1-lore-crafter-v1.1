@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { checkOpenSeaRateLimitEnhanced, createRateLimitResponse } from '@/lib/rate-limit'
 import { COLLECTIONS, CollectionKey, getAllCollectionKeys } from '@/lib/collection-config'
 import { UnifiedCharacter, UnifiedCharacterResponse } from '@/lib/types'
-import { getStoredSouls } from '@/lib/storage'
 import { withOptionalAuth, getRequestWalletAddress } from '@/lib/auth-middleware'
 
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY
@@ -252,8 +251,7 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
     }
 
     // Include souls data
-    console.log('📦 Using localStorage: Getting all souls locally')
-    const existingSouls = getStoredSouls()
+    console.log('📦 Note: Soul data must be merged client-side (localStorage not available on server)')
 
     // Log character map contents for debugging
     console.log('📋 Character Map Contents:', Array.from(characterMap.values()).map(char => ({
@@ -264,22 +262,18 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
       frameImage: !!char.frameImageUrl
     })))
 
-    // Convert to array and add souls information
+    // Convert to array - soul data will be merged on client side
     console.log('🔍 CRITICAL DEBUG: Character map before conversion:')
     console.log(`🔍 Character map size: ${characterMap.size}`)
     console.log(`🔍 Character map keys: ${JSON.stringify(Array.from(characterMap.keys()))}`)
     console.log(`🔍 Character map values (raw): ${JSON.stringify(Array.from(characterMap.values()))}`)
 
     const characters = Array.from(characterMap.values()).map(char => {
-      const existingSoul = existingSouls.find(soul => soul.data.pfpId === char.tokenId)
-      const soulData = existingSoul ? {
-        tokenId: existingSoul.data.pfpId,
-        ...existingSoul.data
-      } : null
+      // Don't check for souls here - client will handle this
       return {
         ...char,
-        hasSoul: !!existingSoul,
-        soul: soulData
+        hasSoul: false, // Will be updated client-side
+        soul: null // Will be updated client-side
       }
     })
 
@@ -331,38 +325,12 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
   } catch (error) {
     console.error('❌ API Error:', error)
     
-    // Fallback: try to return existing souls
-    try {
-      console.log('🔄 Attempting fallback: returning existing souls only')
-      const existingSouls = getStoredSouls()
-      
-      const fallbackCharacters = existingSouls.map(soul => ({
-        tokenId: soul.data.pfpId,
-        forceImageUrl: null,
-        frameImageUrl: null,
-        hasForce: false,
-        hasFrame: false,
-        hasSoul: true,
-        soul: {
-          tokenId: soul.data.pfpId,
-          ...soul.data
-        },
-        displayName: `0N1 #${soul.data.pfpId}`
-      }))
-
-      return NextResponse.json({
-        characters: fallbackCharacters,
-        totalCount: fallbackCharacters.length,
-        fallback: true,
-        error: 'OpenSea API failed, showing existing souls only'
-      })
-    } catch (fallbackError) {
-      console.error('❌ Fallback also failed:', fallbackError)
-      return NextResponse.json({ 
-        error: 'Failed to fetch NFTs and fallback failed', 
-        details: error instanceof Error ? error.message : 'Unknown error',
-        fallbackError: fallbackError instanceof Error ? fallbackError.message : 'Unknown fallback error'
-      }, { status: 500 })
-    }
+    // Fallback: return empty characters array on error
+    return NextResponse.json({ 
+      error: 'Failed to fetch NFTs', 
+      details: error instanceof Error ? error.message : 'Unknown error',
+      characters: [],
+      totalCount: 0
+    }, { status: 500 })
   }
 })

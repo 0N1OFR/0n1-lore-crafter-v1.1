@@ -8,6 +8,7 @@ import type { UnifiedCharacter } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { UnifiedCharacterCard } from "@/components/unified-character-card"
+import { getStoredSouls } from "@/lib/storage"
 
 interface OwnedNftsProps {
   onSelectNft: (tokenId: string) => void
@@ -47,7 +48,19 @@ export function OwnedNfts({ onSelectNft, onShowTraits, selectedNftId, isLoading:
         } else {
           const data = await response.json()
           console.log("API response:", data)
-          setCharacters(data.characters || [])
+          
+          // Merge souls data from localStorage with the NFT data
+          const storedSouls = getStoredSouls()
+          const charactersWithSouls = (data.characters || []).map((char: UnifiedCharacter) => {
+            const existingSoul = storedSouls.find(soul => soul.data.pfpId === char.tokenId)
+            return {
+              ...char,
+              hasSoul: !!existingSoul,
+              soul: existingSoul ? existingSoul.data : null
+            }
+          })
+          
+          setCharacters(charactersWithSouls)
         }
       } catch (err) {
         console.error("Error fetching owned NFTs:", err)
@@ -58,6 +71,14 @@ export function OwnedNfts({ onSelectNft, onShowTraits, selectedNftId, isLoading:
     }
 
     loadOwnedNfts()
+    
+    // Listen for storage changes to update souls
+    const handleStorageChange = () => {
+      loadOwnedNfts()
+    }
+    
+    window.addEventListener("storage", handleStorageChange)
+    return () => window.removeEventListener("storage", handleStorageChange)
   }, [address, isConnected])
 
   const handleEditProfile = (tokenId: string) => {

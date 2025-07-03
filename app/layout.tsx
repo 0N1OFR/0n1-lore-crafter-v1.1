@@ -5,6 +5,7 @@ import { WalletProvider } from "@/components/wallet/wallet-provider"
 import { Header } from "@/components/header"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Inter } from "next/font/google"
+import { Toaster } from "@/components/ui/sonner"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -26,6 +27,7 @@ export default function RootLayout({
           <WalletProvider>
             <Header />
             {children}
+            <Toaster />
           </WalletProvider>
         </ThemeProvider>
       </body>

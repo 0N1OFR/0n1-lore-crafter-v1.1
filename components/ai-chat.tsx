@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sparkles, Send, RefreshCw, AlertCircle } from "lucide-react"
+import { Sparkles, Send, RefreshCw, AlertCircle, Copy } from "lucide-react"
 import type { CharacterData } from "@/lib/types"
+import { toast } from "sonner"
 
 interface Message {
   role: "user" | "assistant"
@@ -211,6 +212,12 @@ export function AiChat({ characterData, currentStep, subStep = null }: AiChatPro
     return `CHAT ABOUT ${currentStep.toUpperCase()}`
   }
 
+  // Handle copy message
+  const handleCopyMessage = (content: string) => {
+    navigator.clipboard.writeText(content)
+    toast.success("Message copied to clipboard")
+  }
+
   return (
     <Card className="mt-6 border border-purple-500/30 bg-black/60 backdrop-blur-sm overflow-hidden transition-all duration-300">
       <CardHeader
@@ -231,15 +238,33 @@ export function AiChat({ characterData, currentStep, subStep = null }: AiChatPro
                 {messages.map((message, index) => (
                   <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                        message.role === "user"
-                          ? "bg-purple-600/70 text-white"
-                          : "bg-gray-800/70 border border-purple-500/30"
+                      className={`relative max-w-[80%] ${
+                        message.role === "assistant" ? "group" : ""
                       }`}
                     >
-                      <div className="whitespace-pre-wrap leading-relaxed">
-                        {message.content}
+                      <div
+                        className={`rounded-lg px-4 py-2 ${
+                          message.role === "user"
+                            ? "bg-purple-600/70 text-white"
+                            : "bg-gray-800/70 border border-purple-500/30"
+                        }`}
+                      >
+                        <div className="whitespace-pre-wrap leading-relaxed">
+                          {message.content}
+                        </div>
                       </div>
+                      {/* Copy button for assistant messages */}
+                      {message.role === "assistant" && (
+                        <Button
+                          onClick={() => handleCopyMessage(message.content)}
+                          size="sm"
+                          variant="ghost"
+                          className="absolute -top-2 -right-2 h-6 w-6 p-0 bg-black/80 hover:bg-black/90 border border-purple-500/30 opacity-100"
+                        >
+                          <Copy className="h-3 w-3 text-purple-300" />
+                          <span className="sr-only">Copy message</span>
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
