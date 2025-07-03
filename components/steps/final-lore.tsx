@@ -14,7 +14,7 @@ import { Download, ExternalLink, Save, BookOpen, Bot } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { storeSoul, initializeHybridStorage, setCurrentWalletAddress } from "@/lib/storage-hybrid"
+import { storeSoul, initializeHybridStorage, setCurrentWalletAddress } from "@/lib/storage-wrapper"
 import { toast } from "sonner"
 import { useWallet } from "@/components/wallet/wallet-provider"
 
@@ -68,8 +68,18 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
     setIsSaving(true)
 
     try {
+      // Ensure soulName is included in the data
+      const dataToSave = {
+        ...characterData,
+        soulName: soulName
+      }
+      
+      console.log("Saving soul data:", dataToSave)
+      
       // Store the soul using hybrid storage
-      storeSoul(characterData)
+      const soulId = storeSoul(dataToSave)
+      console.log("Soul saved with ID:", soulId)
+      
       setIsSaved(true)
 
       // Show success toast
@@ -96,7 +106,11 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
 
     // Save the soul first if not already saved
     if (!isSaved) {
-      storeSoul(characterData)
+      const dataToSave = {
+        ...characterData,
+        soulName: soulName
+      }
+      storeSoul(dataToSave)
     }
 
     // Navigate to the agent page
