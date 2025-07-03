@@ -14,7 +14,7 @@ import { Download, ExternalLink, Save, BookOpen, Bot } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { storeSoul, initializeHybridStorage, setCurrentWalletAddress } from "@/lib/storage-hybrid"
+import { storeSoul, initializeHybridStorage, setCurrentWalletAddress } from "@/lib/storage-wrapper"
 import { toast } from "sonner"
 import { useWallet } from "@/components/wallet/wallet-provider"
 
@@ -68,8 +68,38 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
     setIsSaving(true)
 
     try {
+      // Ensure soulName is included in the data
+      const dataToSave = {
+        ...characterData,
+        soulName: soulName
+      }
+      
+      console.log("🔵 SAVING SOUL - Debug Info:")
+      console.log("- NFT ID (pfpId):", dataToSave.pfpId)
+      console.log("- Soul Name:", dataToSave.soulName)
+      console.log("- Has Archetype:", !!dataToSave.archetype)
+      console.log("- Has Background:", !!dataToSave.background)
+      console.log("- Full data structure:", dataToSave)
+      
+      // Check existing souls before saving
+      const existingSouls = localStorage.getItem('oni-souls')
+      console.log("- Existing souls before save:", existingSouls ? JSON.parse(existingSouls).length : 0)
+      
       // Store the soul using hybrid storage
-      storeSoul(characterData)
+      const soulId = storeSoul(dataToSave)
+      console.log("✅ Soul saved with ID:", soulId)
+      
+      // Verify save by checking localStorage directly
+      const savedSouls = localStorage.getItem('oni-souls')
+      if (savedSouls) {
+        const parsed = JSON.parse(savedSouls)
+        const savedSoul = parsed.find((s: any) => s.id === soulId)
+        console.log("✅ Verification - Soul found in localStorage:", !!savedSoul)
+        if (savedSoul) {
+          console.log("- Saved soul data:", savedSoul)
+        }
+      }
+      
       setIsSaved(true)
 
       // Show success toast
@@ -96,7 +126,11 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
 
     // Save the soul first if not already saved
     if (!isSaved) {
-      storeSoul(characterData)
+      const dataToSave = {
+        ...characterData,
+        soulName: soulName
+      }
+      storeSoul(dataToSave)
     }
 
     // Navigate to the agent page

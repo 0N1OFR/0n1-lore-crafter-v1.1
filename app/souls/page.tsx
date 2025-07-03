@@ -61,13 +61,20 @@ export default function SoulsPage() {
 
         // Get all stored souls
         const allStoredSouls = getStoredSouls()
+        console.log("All stored souls:", allStoredSouls)
+        console.log("Owned NFTs characters:", characters)
         
         // Filter souls to only show ones for NFTs the user actually owns
         const ownedTokenIds = new Set(characters.map((char: any) => char.tokenId))
-        const filteredSouls = allStoredSouls.filter(soul => 
-          ownedTokenIds.has(soul.data.pfpId)
-        )
+        console.log("Owned token IDs:", Array.from(ownedTokenIds))
         
+        const filteredSouls = allStoredSouls.filter(soul => {
+          const hasNft = ownedTokenIds.has(soul.data.pfpId)
+          console.log(`Soul ${soul.data.pfpId} - Owner has NFT: ${hasNft}`)
+          return hasNft
+        })
+        
+        console.log("Filtered souls:", filteredSouls)
         setSouls(filteredSouls)
 
         // Check which souls have been deployed (have existing conversations)

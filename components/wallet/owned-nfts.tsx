@@ -51,8 +51,16 @@ export function OwnedNfts({ onSelectNft, onShowTraits, selectedNftId, isLoading:
           
           // Merge souls data from localStorage with the NFT data
           const storedSouls = getStoredSouls()
+          console.log("🔵 MERGING SOULS WITH NFTS - Debug Info:")
+          console.log("- Total stored souls:", storedSouls.length)
+          console.log("- Stored soul IDs:", storedSouls.map(s => ({ pfpId: s.data.pfpId, name: s.data.soulName })))
+          console.log("- NFT character IDs:", (data.characters || []).map((c: any) => c.tokenId))
+          
           const charactersWithSouls = (data.characters || []).map((char: UnifiedCharacter) => {
             const existingSoul = storedSouls.find(soul => soul.data.pfpId === char.tokenId)
+            if (existingSoul) {
+              console.log(`✅ Found soul for NFT #${char.tokenId}: ${existingSoul.data.soulName}`)
+            }
             return {
               ...char,
               hasSoul: !!existingSoul,
@@ -60,6 +68,7 @@ export function OwnedNfts({ onSelectNft, onShowTraits, selectedNftId, isLoading:
             }
           })
           
+          console.log("- Characters with souls:", charactersWithSouls.filter((c: UnifiedCharacter) => c.hasSoul).length)
           setCharacters(charactersWithSouls)
         }
       } catch (err) {
