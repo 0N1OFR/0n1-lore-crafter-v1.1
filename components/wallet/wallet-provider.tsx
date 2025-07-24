@@ -332,11 +332,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Don't render anything on the server
-  if (!mounted) {
-    return <>{children}</>
-  }
-  
+  // Session expiry monitoring effect - must be declared before conditional returns
   useEffect(() => {
     if (!authSession) {
       setSessionExpiresIn(null)
@@ -374,6 +370,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     
     return () => clearInterval(interval)
   }, [authSession])
+
+  // Don't render anything on the server
+  if (!mounted) {
+    return <>{children}</>
+  }
 
   return (
     <WalletContext.Provider
