@@ -313,6 +313,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Session expiry timer - must be declared before any conditional returns
+  const [sessionExpiresIn, setSessionExpiresIn] = useState<number | null>(null)
+
   const disconnect = () => {
     console.log("Disconnecting wallet...")
     setAddress(null)
@@ -333,9 +336,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   if (!mounted) {
     return <>{children}</>
   }
-
-  // Session expiry timer
-  const [sessionExpiresIn, setSessionExpiresIn] = useState<number | null>(null)
   
   useEffect(() => {
     if (!authSession) {
