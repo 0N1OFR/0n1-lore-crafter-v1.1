@@ -70,8 +70,9 @@ export async function GET(req: NextRequest) {
     // Test specific NFT fetching if tokenId provided
     if (testTokenId) {
       try {
-        const forceContract = COLLECTIONS.force.contractAddress
-        const nftUrl = `https://api.opensea.io/api/v2/chain/ethereum/contract/${forceContract}/nfts/${testTokenId}`
+        const testCollection = searchParams.get('collection') || 'force'
+        const contractAddress = COLLECTIONS[testCollection as keyof typeof COLLECTIONS]?.contractAddress || COLLECTIONS.force.contractAddress
+        const nftUrl = `https://api.opensea.io/api/v2/chain/ethereum/contract/${contractAddress}/nfts/${testTokenId}`
         
         const nftResponse = await fetch(nftUrl, {
           headers: {
@@ -84,6 +85,7 @@ export async function GET(req: NextRequest) {
         
         diagnostics.nftTests.push({
           type: 'specific_nft',
+          collection: testCollection,
           tokenId: testTokenId,
           url: nftUrl,
           status: nftResponse.status,
@@ -93,7 +95,8 @@ export async function GET(req: NextRequest) {
             name: nftData.nft?.name,
             image_url: nftData.nft?.image_url,
             contract: nftData.nft?.contract,
-            owners: nftData.nft?.owners?.length || 0
+            owners: nftData.nft?.owners?.length || 0,
+            traits: nftData.nft?.traits
           } : { error: nftData }
         })
       } catch (error) {

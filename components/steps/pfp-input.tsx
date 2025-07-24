@@ -35,6 +35,7 @@ export function PfpInput({ characterData, updateCharacterData, nextStep }: PfpIn
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarTokenId, setSidebarTokenId] = useState<string | null>(null)
   const [sidebarImageUrl, setSidebarImageUrl] = useState<string | null>(null)
+  const [sidebarCollection, setSidebarCollection] = useState<string>("force")
   const router = useRouter()
   
   // Check if the current NFT has a soul attached
@@ -131,9 +132,10 @@ export function PfpInput({ characterData, updateCharacterData, nextStep }: PfpIn
   }
 
   // Handle showing traits in sidebar
-  const handleShowTraits = (tokenId: string, imageUrl: string | null) => {
+  const handleShowTraits = (tokenId: string, imageUrl: string | null, collection: string = "force") => {
     setSidebarTokenId(tokenId)
     setSidebarImageUrl(imageUrl)
+    setSidebarCollection(collection)
     setSidebarOpen(true)
   }
 
@@ -233,6 +235,7 @@ export function PfpInput({ characterData, updateCharacterData, nextStep }: PfpIn
         onClose={() => setSidebarOpen(false)}
         tokenId={sidebarTokenId}
         imageUrl={sidebarImageUrl}
+        collection={sidebarCollection}
       />
     </div>
   )

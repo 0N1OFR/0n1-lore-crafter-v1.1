@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkOpenSeaRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
+import { COLLECTIONS } from '@/lib/collection-config'
 
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY
-const CONTRACT_ADDRESS = "0x3bf2922f4520a8ba0c2efc3d2a1539678dad5e9d" // 0N1 Force contract address
 
 export async function GET(request: NextRequest) {
   // Check rate limit first
@@ -24,10 +24,19 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const tokenId = searchParams.get("tokenId")
+  const collection = searchParams.get("collection") || "force" // Default to force
 
   if (!tokenId) {
     return NextResponse.json({ error: "Token ID is required" }, { status: 400 })
   }
+
+  // Validate collection
+  if (collection !== "force" && collection !== "frame") {
+    return NextResponse.json({ error: "Invalid collection. Must be 'force' or 'frame'" }, { status: 400 })
+  }
+
+  // Get the contract address for the specified collection
+  const contractAddress = COLLECTIONS[collection as keyof typeof COLLECTIONS].contractAddress
 
   // Normalize token ID by removing leading zeros
   const normalizedTokenId = tokenId.replace(/^0+/, "")
@@ -44,10 +53,10 @@ export async function GET(request: NextRequest) {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
 
-    console.log(`Fetching OpenSea data for token ${normalizedTokenId}...`)
+    console.log(`Fetching OpenSea data for ${collection} token ${normalizedTokenId}...`)
 
     const response = await fetch(
-      `https://api.opensea.io/api/v2/chain/ethereum/contract/${CONTRACT_ADDRESS}/nfts/${normalizedTokenId}`,
+      `https://api.opensea.io/api/v2/chain/ethereum/contract/${contractAddress}/nfts/${normalizedTokenId}`,
       {
         headers: {
           Accept: "application/json",
@@ -61,7 +70,7 @@ export async function GET(request: NextRequest) {
     clearTimeout(timeoutId)
 
     if (!response.ok) {
-      console.error(`OpenSea API error for token ${normalizedTokenId}: ${response.status} ${response.statusText}`)
+      console.error(`OpenSea API error for ${collection} token ${normalizedTokenId}: ${response.status} ${response.statusText}`)
 
       // Log response body for debugging
       try {
@@ -74,14 +83,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           error: `OpenSea API error: ${response.status}`,
-          message: `Failed to fetch data for token ID ${normalizedTokenId}`,
+          message: `Failed to fetch data for ${collection} token ID ${normalizedTokenId}`,
         },
         { status: response.status },
       )
     }
 
     const data = await response.json()
-    console.log(`Successfully fetched data for token ${normalizedTokenId}`)
+    console.log(`Successfully fetched data for ${collection} token ${normalizedTokenId}`)
     
     // Return with cache headers for client-side caching
     return NextResponse.json(data, {
@@ -90,7 +99,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error(`Error fetching from OpenSea for token ${normalizedTokenId}:`, error)
+    console.error(`Error fetching from OpenSea for ${collection} token ${normalizedTokenId}:`, error)
     return NextResponse.json(
       {
         error: "Failed to fetch data from OpenSea",
