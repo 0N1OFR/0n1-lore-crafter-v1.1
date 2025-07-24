@@ -284,7 +284,7 @@ export function generatePersonalityFromSoul(characterData: CharacterData): Perso
   // Start with deterministic base values based on NFT ID
   const settings = createDeterministicPersonalitySettings(characterData.pfpId)
   
-  // Analyze archetype and adjust traits accordingly
+  // Comprehensive analysis of all questionnaire data
   analyzeArchetype(characterData.archetype, settings)
   analyzePersonalityDescription(characterData.personalityProfile?.description || "", settings)
   analyzeHopesAndFears(characterData.hopesFears, settings)
@@ -294,6 +294,13 @@ export function generatePersonalityFromSoul(characterData: CharacterData): Perso
   analyzeVoice(characterData.voice, settings)
   analyzePowersAbilities(characterData.powersAbilities, settings)
   analyzeBackground(characterData.background, settings)
+  analyzeSymbolism(characterData.symbolism, settings)
+  
+  // Cross-analyze different aspects for deeper customization
+  performCrossAnalysis(characterData, settings)
+  
+  // Final adjustments based on overall character profile
+  finalizePersonalitySettings(characterData, settings)
   
   return settings
 }
@@ -301,32 +308,75 @@ export function generatePersonalityFromSoul(characterData: CharacterData): Perso
 function analyzeArchetype(archetype: string, settings: PersonalitySettings) {
   const archetypeLower = archetype.toLowerCase()
   
-  if (archetypeLower.includes('warrior') || archetypeLower.includes('fighter')) {
-    settings.confidence = Math.max(60, settings.confidence)
-    settings.dominance = Math.max(65, settings.dominance)  
-    settings.directness = Math.max(70, settings.directness)
+  if (archetypeLower.includes('warrior') || archetypeLower.includes('fighter') || archetypeLower.includes('soldier')) {
+    settings.confidence = Math.max(70, settings.confidence)
+    settings.dominance = Math.max(75, settings.dominance)  
+    settings.directness = Math.max(80, settings.directness)
     settings.stressResponse = Math.max(75, settings.stressResponse)
     settings.riskTolerance = Math.max(70, settings.riskTolerance)
-  } else if (archetypeLower.includes('scholar') || archetypeLower.includes('sage')) {
-    settings.openness = Math.max(75, settings.openness)
-    settings.curiosityLevel = Math.max(80, settings.curiosityLevel)
-    settings.analyticalNature = Math.max(75, settings.analyticalNature)
-    settings.verbosity = Math.max(65, settings.verbosity)
-    settings.technicalLanguage = Math.max(60, settings.technicalLanguage)
-  } else if (archetypeLower.includes('rogue') || archetypeLower.includes('trickster')) {
-    settings.sarcasmLevel = Math.max(60, settings.sarcasmLevel)
-    settings.witHumor = Math.max(70, settings.witHumor)
-    settings.impulsiveness = Math.max(60, settings.impulsiveness)
-    settings.trustLevel = Math.min(40, settings.trustLevel)
-  } else if (archetypeLower.includes('healer') || archetypeLower.includes('caregiver')) {
-    settings.empathy = Math.max(80, settings.empathy)
-    settings.agreeableness = Math.max(75, settings.agreeableness)
+    settings.conscientiousness = Math.max(65, settings.conscientiousness)
+    settings.physicalAwareness = Math.max(80, settings.physicalAwareness)
+    settings.conflictStyle = Math.max(70, settings.conflictStyle)
+    settings.professionRole = "Warrior"
+    settings.primaryLanguageStyle = "Military"
+    settings.sentenceStructure = "Short & Punchy"
+    settings.responseSpeedStyle = "Immediate"
+  } else if (archetypeLower.includes('scholar') || archetypeLower.includes('sage') || archetypeLower.includes('wizard')) {
+    settings.openness = Math.max(85, settings.openness)
+    settings.curiosityLevel = Math.max(90, settings.curiosityLevel)
+    settings.analyticalNature = Math.max(85, settings.analyticalNature)
+    settings.verbosity = Math.max(75, settings.verbosity)
+    settings.technicalLanguage = Math.max(70, settings.technicalLanguage)
+    settings.memoryForDetails = Math.max(80, settings.memoryForDetails)
+    settings.philosophicalTendency = Math.max(85, settings.philosophicalTendency)
+    settings.educationLevel = "Advanced Degree"
+    settings.professionRole = "Scholar"
+    settings.primaryLanguageStyle = "Academic"
+    settings.sentenceStructure = "Flowing & Complex"
+    settings.metaphorUsage = Math.max(70, settings.metaphorUsage)
+  } else if (archetypeLower.includes('rogue') || archetypeLower.includes('trickster') || archetypeLower.includes('thief')) {
+    settings.sarcasmLevel = Math.max(75, settings.sarcasmLevel)
+    settings.witHumor = Math.max(80, settings.witHumor)
+    settings.impulsiveness = Math.max(70, settings.impulsiveness)
+    settings.trustLevel = Math.min(30, settings.trustLevel)
+    settings.riskTolerance = Math.max(80, settings.riskTolerance)
+    settings.conscientiousness = Math.min(40, settings.conscientiousness)
+    settings.creativity = Math.max(70, settings.creativity)
+    settings.primaryLanguageStyle = "Street Slang"
+    settings.speaksInQuestions = true
+    settings.frequentlyInterrupts = true
+  } else if (archetypeLower.includes('healer') || archetypeLower.includes('caregiver') || archetypeLower.includes('priest')) {
+    settings.empathy = Math.max(90, settings.empathy)
+    settings.agreeableness = Math.max(85, settings.agreeableness)
     settings.alwaysGivesAdvice = true
-  } else if (archetypeLower.includes('leader') || archetypeLower.includes('commander')) {
-    settings.dominance = Math.max(75, settings.dominance)
-    settings.confidence = Math.max(70, settings.confidence)
-    settings.directness = Math.max(75, settings.directness)
-    settings.authorityRespect = Math.min(30, settings.authorityRespect)
+    settings.optimism = Math.max(70, settings.optimism)
+    settings.intimacyComfort = Math.max(75, settings.intimacyComfort)
+    settings.boundarySetting = Math.min(40, settings.boundarySetting)
+    settings.mentorshipInclination = Math.max(85, settings.mentorshipInclination)
+    settings.professionRole = "Healer"
+    settings.defaultRelationshipStance = "Friendly"
+    settings.tellsStoriesInsteadOfAnswers = true
+  } else if (archetypeLower.includes('leader') || archetypeLower.includes('commander') || archetypeLower.includes('king')) {
+    settings.dominance = Math.max(85, settings.dominance)
+    settings.confidence = Math.max(80, settings.confidence)
+    settings.directness = Math.max(85, settings.directness)
+    settings.authorityRespect = Math.min(20, settings.authorityRespect)
+    settings.conscientiousness = Math.max(75, settings.conscientiousness)
+    settings.emotionalVolatility = Math.min(30, settings.emotionalVolatility)
+    settings.socialClass = "Elite/Noble"
+    settings.professionRole = "Leader"
+    settings.neverUsesContractions = true
+    settings.formalityLevel = Math.max(70, settings.formalityLevel)
+  } else if (archetypeLower.includes('artist') || archetypeLower.includes('bard') || archetypeLower.includes('poet')) {
+    settings.creativity = Math.max(90, settings.creativity)
+    settings.openness = Math.max(80, settings.openness)
+    settings.emotionalExpression = Math.max(85, settings.emotionalExpression)
+    settings.metaphorUsage = Math.max(85, settings.metaphorUsage)
+    settings.storytellingTendency = Math.max(90, settings.storytellingTendency)
+    settings.primaryLanguageStyle = "Artistic"
+    settings.sentenceStructure = "Poetic"
+    settings.professionRole = "Artist"
+    settings.usesTechnicalMetaphors = true
   }
 }
 
@@ -455,39 +505,149 @@ function analyzeWorldPosition(worldPosition: {societalRole: string, classStatus:
 
 function analyzeVoice(voice: {speechStyle: string, innerDialogue: string, uniquePhrases: string}, settings: PersonalitySettings) {
   const speechLower = voice.speechStyle.toLowerCase()
+  const innerLower = voice.innerDialogue.toLowerCase()
+  const phrasesLower = voice.uniquePhrases.toLowerCase()
   
-  if (speechLower.includes('formal') || speechLower.includes('proper') || speechLower.includes('professional')) {
-    settings.formalityLevel = Math.max(70, settings.formalityLevel)
-    settings.primaryLanguageStyle = "Corporate"
-  } else if (speechLower.includes('casual') || speechLower.includes('slang') || speechLower.includes('street')) {
+  // Analyze speech style
+  if (speechLower.includes('formal') || speechLower.includes('proper') || speechLower.includes('polite')) {
+    settings.formalityLevel = Math.max(75, settings.formalityLevel)
+    settings.profanityUsage = Math.min(10, settings.profanityUsage)
+    settings.neverUsesContractions = true
+  } else if (speechLower.includes('casual') || speechLower.includes('relaxed') || speechLower.includes('informal')) {
     settings.formalityLevel = Math.min(30, settings.formalityLevel)
     settings.primaryLanguageStyle = "Street Slang"
+  } else if (speechLower.includes('poetic') || speechLower.includes('flowery') || speechLower.includes('eloquent')) {
+    settings.primaryLanguageStyle = "Artistic"
+    settings.sentenceStructure = "Flowing & Complex"
+    settings.metaphorUsage = Math.max(80, settings.metaphorUsage)
+  } else if (speechLower.includes('technical') || speechLower.includes('precise') || speechLower.includes('scientific')) {
+    settings.primaryLanguageStyle = "Technical"
+    settings.technicalLanguage = Math.max(85, settings.technicalLanguage)
+    settings.usesTechnicalMetaphors = true
   }
   
-  if (speechLower.includes('brief') || speechLower.includes('short') || speechLower.includes('concise')) {
-    settings.verbosity = Math.min(30, settings.verbosity)
-    settings.sentenceStructure = "Short & Punchy"
-  } else if (speechLower.includes('verbose') || speechLower.includes('detailed') || speechLower.includes('elaborate')) {
-    settings.verbosity = Math.max(70, settings.verbosity)
-    settings.sentenceStructure = "Flowing & Complex"
+  // Analyze unique phrases for speech patterns
+  if (phrasesLower.length > 0) {
+    settings.signaturePhrase = voice.uniquePhrases.split('\n')[0] || settings.signaturePhrase
+    
+    if (phrasesLower.includes('?') || speechLower.includes('question')) {
+      settings.speaksInQuestions = true
+      settings.questionAskingFrequency = Math.max(70, settings.questionAskingFrequency)
+    }
+    
+    if (phrasesLower.includes('...') || speechLower.includes('pause') || speechLower.includes('hesita')) {
+      settings.responseSpeedStyle = "Thoughtful Pauses"
+    }
+    
+    if (phrasesLower.includes('!') || speechLower.includes('exclaim') || speechLower.includes('energetic')) {
+      settings.emotionIntensity = Math.max(70, settings.emotionIntensity)
+      settings.responseSpeedStyle = "Immediate"
+    }
+  }
+  
+  // Analyze inner dialogue for psychological traits
+  if (innerLower.includes('doubt') || innerLower.includes('uncertain') || innerLower.includes('question')) {
+    settings.confidence = Math.min(40, settings.confidence)
+    settings.neuroticism = Math.max(60, settings.neuroticism)
+  }
+  if (innerLower.includes('angry') || innerLower.includes('rage') || innerLower.includes('furious')) {
+    settings.emotionalVolatility = Math.max(70, settings.emotionalVolatility)
+    settings.stressResponse = Math.max(80, settings.stressResponse)
+  }
+  if (innerLower.includes('analyze') || innerLower.includes('calculate') || innerLower.includes('logic')) {
+    settings.analyticalNature = Math.max(75, settings.analyticalNature)
+    settings.emotionalExpression = Math.min(40, settings.emotionalExpression)
   }
 }
 
-function analyzePowersAbilities(powersAbilities: {powers: string[], description: string}, settings: PersonalitySettings) {
-  const powers = powersAbilities.powers.join(' ').toLowerCase()
+function analyzeSymbolism(symbolism: {colors: string, items: string, motifs: string}, settings: PersonalitySettings) {
+  const colorsLower = symbolism.colors.toLowerCase()
+  const itemsLower = symbolism.items.toLowerCase()
+  const motifsLower = symbolism.motifs.toLowerCase()
   
-  if (powers.includes('tech') || powers.includes('cyber') || powers.includes('digital')) {
-    settings.technicalLanguage = Math.max(65, settings.technicalLanguage)
-    settings.usesTechnicalMetaphors = true
+  // Analyze colors for emotional tendencies
+  if (colorsLower.includes('red') || colorsLower.includes('crimson') || colorsLower.includes('blood')) {
+    settings.emotionalVolatility = Math.max(60, settings.emotionalVolatility)
+    settings.impulsiveness = Math.max(60, settings.impulsiveness)
+    settings.emotionIntensity = Math.max(70, settings.emotionIntensity)
+  } else if (colorsLower.includes('blue') || colorsLower.includes('azure') || colorsLower.includes('ocean')) {
+    settings.moodStability = Math.max(70, settings.moodStability)
+    settings.emotionalVolatility = Math.min(40, settings.emotionalVolatility)
+  } else if (colorsLower.includes('black') || colorsLower.includes('shadow') || colorsLower.includes('dark')) {
+    settings.optimism = Math.min(30, settings.optimism)
+    settings.primaryDefenseMechanism = "Withdrawal"
+  } else if (colorsLower.includes('gold') || colorsLower.includes('yellow') || colorsLower.includes('sun')) {
+    settings.optimism = Math.max(70, settings.optimism)
+    settings.confidence = Math.max(60, settings.confidence)
+  }
+  
+  // Analyze items for personality traits
+  if (itemsLower.includes('book') || itemsLower.includes('scroll') || itemsLower.includes('tome')) {
+    settings.curiosityLevel = Math.max(70, settings.curiosityLevel)
+    settings.memoryForDetails = Math.max(65, settings.memoryForDetails)
+    settings.verbosity = Math.max(60, settings.verbosity)
+  } else if (itemsLower.includes('weapon') || itemsLower.includes('sword') || itemsLower.includes('blade')) {
+    settings.conflictStyle = Math.max(65, settings.conflictStyle)
+    settings.directness = Math.max(70, settings.directness)
+  } else if (itemsLower.includes('mask') || itemsLower.includes('veil') || itemsLower.includes('disguise')) {
+    settings.trustLevel = Math.min(40, settings.trustLevel)
+    settings.secretHiddenAspect = "True identity hidden behind masks"
+    settings.avoidsNamingPeople = true
+  }
+  
+  // Analyze motifs for deeper patterns
+  if (motifsLower.includes('transform') || motifsLower.includes('change') || motifsLower.includes('metamorph')) {
+    settings.currentLifePhase = "Transforming"
+    settings.futureOrientation = Math.max(70, settings.futureOrientation)
+    settings.characterArcDirection = "Constant evolution and change"
+  } else if (motifsLower.includes('cycle') || motifsLower.includes('repeat') || motifsLower.includes('eternal')) {
+    settings.memoryReference = Math.max(70, settings.memoryReference)
+    settings.currentLifePhase = "Building"
+  }
+  
+  // Update reference pool based on symbolism
+  if (itemsLower.length > 20 || motifsLower.length > 20) {
+    settings.uniqueReferencePool = `Symbolism from ${symbolism.colors}, ${symbolism.items}`
+  }
+}
+
+function analyzePowersAbilities(powers: {powers: string[], description: string}, settings: PersonalitySettings) {
+  const powersText = powers.powers.join(' ').toLowerCase()
+  const descLower = powers.description.toLowerCase()
+  
+  // Analyze power types for personality implications
+  if (powersText.includes('telepathy') || powersText.includes('mind read') || powersText.includes('psychic')) {
+    settings.empathy = Math.max(75, settings.empathy)
+    settings.audienceAwareness = Math.max(80, settings.audienceAwareness)
+    settings.memoryForDetails = Math.max(70, settings.memoryForDetails)
+  } else if (powersText.includes('strength') || powersText.includes('physical') || powersText.includes('combat')) {
+    settings.physicalAwareness = Math.max(85, settings.physicalAwareness)
+    settings.confidence = Math.max(65, settings.confidence)
+    settings.directness = Math.max(70, settings.directness)
+  } else if (powersText.includes('illusion') || powersText.includes('deception') || powersText.includes('trick')) {
+    settings.creativity = Math.max(75, settings.creativity)
+    settings.trustLevel = Math.min(35, settings.trustLevel)
+    settings.avoidsNamingPeople = true
+  } else if (powersText.includes('healing') || powersText.includes('restoration') || powersText.includes('life')) {
+    settings.empathy = Math.max(80, settings.empathy)
+    settings.optimism = Math.max(65, settings.optimism)
+    settings.mentorshipInclination = Math.max(70, settings.mentorshipInclination)
+  } else if (powersText.includes('technology') || powersText.includes('hacking') || powersText.includes('digital')) {
     settings.primaryLanguageStyle = "Technical"
-  } else if (powers.includes('magic') || powers.includes('mystic') || powers.includes('arcane')) {
-    settings.metaphorUsage = Math.max(70, settings.metaphorUsage)
-    settings.primaryLanguageStyle = "Archaic"
-    settings.philosophicalTendency = Math.max(60, settings.philosophicalTendency)
-  } else if (powers.includes('combat') || powers.includes('fight') || powers.includes('battle')) {
-    settings.directness = Math.max(65, settings.directness)
-    settings.conflictStyle = Math.max(60, settings.conflictStyle)
-    settings.primaryLanguageStyle = "Military"
+    settings.technicalLanguage = Math.max(80, settings.technicalLanguage)
+    settings.analyticalNature = Math.max(75, settings.analyticalNature)
+    settings.usesTechnicalMetaphors = true
+  }
+  
+  // Power limitations affect confidence and stress
+  if (descLower.includes('limited') || descLower.includes('weak') || descLower.includes('drain')) {
+    settings.confidence = Math.min(50, settings.confidence)
+    settings.stressResponse = Math.max(60, settings.stressResponse)
+    settings.energyLevel = "Low"
+  } else if (descLower.includes('powerful') || descLower.includes('master') || descLower.includes('unlimited')) {
+    settings.confidence = Math.max(75, settings.confidence)
+    settings.dominance = Math.max(65, settings.dominance)
+    settings.energyLevel = "High"
   }
 }
 
@@ -507,6 +667,100 @@ function analyzeBackground(background: string, settings: PersonalitySettings) {
     settings.primaryLanguageStyle = "Street Slang"
     settings.trustLevel = Math.min(35, settings.trustLevel)
     settings.riskTolerance = Math.max(70, settings.riskTolerance)
+  }
+}
+
+function performCrossAnalysis(characterData: CharacterData, settings: PersonalitySettings) {
+  // Cross-analyze background with archetype
+  const backgroundLower = characterData.background.toLowerCase()
+  const archetypeLower = characterData.archetype.toLowerCase()
+  
+  // Tragic background affects multiple traits
+  if (backgroundLower.includes('tragedy') || backgroundLower.includes('loss') || backgroundLower.includes('death')) {
+    settings.formativeTrauma = "Early loss shaped worldview"
+    settings.neuroticism = Math.max(settings.neuroticism + 10, 60)
+    settings.trustLevel = Math.max(settings.trustLevel - 15, 20)
+    settings.primaryDefenseMechanism = "Emotional numbing"
+    settings.emotionalVolatility = Math.max(60, settings.emotionalVolatility)
+  }
+  
+  // Noble/privileged background
+  if (backgroundLower.includes('noble') || backgroundLower.includes('wealth') || backgroundLower.includes('privilege')) {
+    settings.socialClass = "Elite/Noble"
+    settings.educationLevel = "Advanced Degree"
+    settings.culturalBackground = "High society upbringing"
+    settings.formalityLevel = Math.max(settings.formalityLevel + 15, 60)
+  }
+  
+  // Street/survival background
+  if (backgroundLower.includes('street') || backgroundLower.includes('orphan') || backgroundLower.includes('survival')) {
+    settings.socialClass = "Street/Exile"
+    settings.educationLevel = "Street-Smart"
+    settings.culturalBackground = "Survival-focused upbringing"
+    settings.riskTolerance = Math.max(settings.riskTolerance + 20, 70)
+    settings.trustLevel = Math.min(settings.trustLevel - 20, 40)
+  }
+  
+  // Combine voice style with personality description
+  if (characterData.voice.speechStyle.includes('aggressive') && settings.agreeableness < 40) {
+    settings.profanityUsage = Math.max(60, settings.profanityUsage)
+    settings.frequentlyInterrupts = true
+    settings.responseSpeedStyle = "Interrupt-Heavy"
+  }
+  
+  // World position affects communication style
+  if (characterData.worldPosition.societalRole.includes('outcast') || characterData.worldPosition.societalRole.includes('exile')) {
+    settings.defaultRelationshipStance = "Suspicious"
+    settings.authorityResponse = "Ignore"
+    settings.boundarySetting = Math.max(70, settings.boundarySetting)
+  }
+}
+
+function finalizePersonalitySettings(characterData: CharacterData, settings: PersonalitySettings) {
+  // Set backstory summary based on all data
+  settings.backstorySummary = `${characterData.archetype} shaped by ${characterData.background}`
+  
+  // Set current goal based on hopes
+  if (characterData.hopesFears.hopes) {
+    settings.currentGoal = characterData.hopesFears.hopes.substring(0, 100)
+  }
+  
+  // Adjust output controls based on overall personality
+  if (settings.verbosity > 70) {
+    settings.responseLengthPreference = Math.max(70, settings.responseLengthPreference)
+  } else if (settings.directness > 80) {
+    settings.responseLengthPreference = Math.min(30, settings.responseLengthPreference)
+  }
+  
+  // Set advice tendency based on role and empathy
+  if (settings.mentorshipInclination > 70 || settings.empathy > 80) {
+    settings.adviceGivingTendency = Math.max(70, settings.adviceGivingTendency)
+  }
+  
+  // Adjust quirks based on personality extremes
+  if (settings.neuroticism > 80) {
+    settings.speakingTic = "Nervous fidgeting when stressed"
+  }
+  if (settings.confidence > 85) {
+    settings.physicalTell = "Stands tall, direct eye contact"
+  }
+  if (settings.sarcasmLevel > 80) {
+    settings.conversationHabit = "Deflects with humor"
+  }
+  
+  // Set life phase based on character arc
+  if (characterData.background.includes('seeking') || characterData.motivations.goals.includes('find')) {
+    settings.currentLifePhase = "Searching"
+  } else if (characterData.motivations.goals.includes('protect') || characterData.motivations.goals.includes('defend')) {
+    settings.currentLifePhase = "Protecting"
+  }
+  
+  // Final consistency checks
+  if (settings.empathy > 80 && settings.profanityUsage > 50) {
+    settings.profanityUsage = Math.min(30, settings.profanityUsage) // Empathetic people curse less
+  }
+  if (settings.analyticalNature > 80 && settings.impulsiveness > 70) {
+    settings.impulsiveness = Math.min(50, settings.impulsiveness) // Analytical people are less impulsive
   }
 }
 
