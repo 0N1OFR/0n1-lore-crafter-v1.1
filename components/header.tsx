@@ -5,7 +5,7 @@ import { WalletConnectButton } from "@/components/wallet/wallet-connect-button"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { BookOpen, Home } from "lucide-react"
-import { SyncStatus } from "@/components/sync-status"
+// import { SyncStatus } from "@/components/sync-status"
 
 export function Header() {
   const pathname = usePathname()
@@ -53,7 +53,7 @@ export function Header() {
               <Home className="h-5 w-5" />
             </Button>
           )}
-          <SyncStatus />
+          {/* <SyncStatus /> */}
           <WalletConnectButton />
         </div>
       </div>
