@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { checkOwnershipRateLimit, createRateLimitResponse } from '@/lib/rate-limit'
-import { saveSoul } from '@/lib/storage'
+import { storeSoul } from '@/lib/storage'
 import { withOptionalAuth, getRequestWalletAddress } from '@/lib/auth-middleware'
 
 export const POST = withOptionalAuth(async (request: NextRequest, sessionInfo) => {
@@ -63,11 +63,8 @@ export const POST = withOptionalAuth(async (request: NextRequest, sessionInfo) =
     // If specific character data is provided, migrate just that character
     if (characterData) {
       // Migrate single character
-      const soulData = {
-        data: characterData,
-        timestamp: Date.now()
-      }
-      const success = await saveSoul(soulData, walletAddress)
+      const soulId = storeSoul(characterData)
+      const success = !!soulId
       
       return NextResponse.json({ 
         success,
