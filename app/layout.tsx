@@ -1,11 +1,9 @@
 import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
-import { WalletProvider } from "@/components/wallet/wallet-provider"
 import { Header } from "@/components/header"
-import { ThemeProvider } from "@/components/theme-provider"
 import { Inter } from "next/font/google"
-import { Toaster } from "@/components/ui/sonner"
+import { Providers } from "./providers"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -23,13 +21,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="dark">
-          <WalletProvider>
-            <Header />
-            {children}
-            <Toaster />
-          </WalletProvider>
-        </ThemeProvider>
+        <Providers>
+          <Header />
+          {children}
+        </Providers>
       </body>
     </html>
   )
