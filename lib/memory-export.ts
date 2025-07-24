@@ -1,9 +1,58 @@
 import type { CharacterMemoryProfile } from './memory-types'
+import type { StoredSoul } from './storage-wrapper'
+import type { CharacterData } from './types'
 
 export interface ExportData {
   version: string
   exportDate: Date
   profiles: CharacterMemoryProfile[]
+}
+
+export interface CompleteSoulExport {
+  version: string
+  exportDate: Date
+  soul: {
+    id: string
+    createdAt: string
+    lastUpdated: string
+    data: CharacterData // Includes personalitySettings
+  }
+  memoryProfile?: CharacterMemoryProfile // Includes all context notes with tags
+  archivedChats?: any[] // Include archived chats if available
+  metadata: {
+    exportedBy?: string // wallet address if available
+    exportTool: string
+    includesPersonality: boolean
+    includesMemory: boolean
+    includesArchives: boolean
+  }
+}
+
+export function exportCompleteSoul(
+  soul: StoredSoul, 
+  memoryProfile?: CharacterMemoryProfile | null,
+  archivedChats?: any[]
+): string {
+  const exportData: CompleteSoulExport = {
+    version: "2.0.0",
+    exportDate: new Date(),
+    soul: {
+      id: soul.id,
+      createdAt: soul.createdAt,
+      lastUpdated: soul.lastUpdated,
+      data: soul.data // This includes personalitySettings
+    },
+    memoryProfile: memoryProfile || undefined,
+    archivedChats: archivedChats || undefined,
+    metadata: {
+      exportTool: "0N1 Lore Crafter",
+      includesPersonality: !!soul.data.personalitySettings,
+      includesMemory: !!memoryProfile,
+      includesArchives: !!(archivedChats && archivedChats.length > 0)
+    }
+  }
+  
+  return JSON.stringify(exportData, null, 2)
 }
 
 export function exportMemoryProfiles(profiles: CharacterMemoryProfile[]): string {
@@ -29,15 +78,19 @@ export function exportSingleProfile(profile: CharacterMemoryProfile): string {
 export function downloadJSON(data: string, filename: string): void {
   const blob = new Blob([data], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
-  
   const link = document.createElement('a')
   link.href = url
   link.download = filename
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
-  
   URL.revokeObjectURL(url)
+}
+
+export function generateExportFilename(characterName: string, nftId: string, includesContext: boolean = false): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+  const contextSuffix = includesContext ? '_with_context' : ''
+  return `${characterName}_${nftId}${contextSuffix}_${timestamp}.json`
 }
 
 export function parseImportData(jsonString: string): ExportData {
@@ -98,31 +151,73 @@ export function parseImportData(jsonString: string): ExportData {
         dateAdded: new Date(w.dateAdded)
       }))
       
+      // Parse context entries if they exist
+      if (profile.contextNotes.contextEntries) {
+        profile.contextNotes.contextEntries = profile.contextNotes.contextEntries.map((entry: any) => ({
+          ...entry,
+          date: new Date(entry.date)
+        }))
+      }
+      
+      // Parse custom tag dates if they exist
+      if (profile.contextNotes.tagManagement?.customTags) {
+        profile.contextNotes.tagManagement.customTags = profile.contextNotes.tagManagement.customTags.map((tag: any) => ({
+          ...tag,
+          createdDate: new Date(tag.createdDate)
+        }))
+      }
+      
       return profile
     })
     
-    return data as ExportData
+    return data
   } catch (error) {
-    throw new Error(`Failed to parse import file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error(`Failed to parse import data: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
-export function validateProfile(profile: any): boolean {
+export function parseCompleteSoulImport(jsonString: string): CompleteSoulExport {
   try {
-    // Basic structure validation
-    return !!(
-      profile.id &&
-      profile.nftId &&
-      profile.characterData &&
-      profile.conversationMemory &&
-      profile.enhancedMemory &&
-      profile.overview &&
-      profile.characterEvolution &&
-      profile.contextNotes &&
-      profile.metadata
-    )
-  } catch {
-    return false
+    const data = JSON.parse(jsonString)
+    
+    // Validate structure
+    if (!data.version || !data.exportDate || !data.soul) {
+      throw new Error('Invalid soul export file format')
+    }
+    
+    // Parse dates
+    data.exportDate = new Date(data.exportDate)
+    
+    // Parse memory profile if included
+    if (data.memoryProfile) {
+      // Use existing parseImportData logic for memory profile
+      const tempExport = { 
+        version: data.version, 
+        exportDate: data.exportDate, 
+        profiles: [data.memoryProfile] 
+      }
+      const parsed = parseImportData(JSON.stringify(tempExport))
+      data.memoryProfile = parsed.profiles[0]
+    }
+    
+    return data
+  } catch (error) {
+    throw new Error(`Failed to parse soul import data: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+export function validateProfile(profile: CharacterMemoryProfile): { isValid: boolean; errors: string[] } {
+  const errors: string[] = []
+  
+  if (!profile.id) errors.push('Profile ID is missing')
+  if (!profile.nftId) errors.push('NFT ID is missing')
+  if (!profile.characterData) errors.push('Character data is missing')
+  if (!profile.conversationMemory) errors.push('Conversation memory is missing')
+  if (!profile.metadata) errors.push('Metadata is missing')
+  
+  return {
+    isValid: errors.length === 0,
+    errors
   }
 }
 
@@ -149,15 +244,4 @@ export function mergeProfiles(existing: CharacterMemoryProfile[], imported: Char
   })
   
   return { merged, conflicts, newProfiles }
-}
-
-export function generateExportFilename(profile?: CharacterMemoryProfile): string {
-  const timestamp = new Date().toISOString().split('T')[0]
-  
-  if (profile) {
-    const safeName = profile.characterData.soulName.replace(/[^a-zA-Z0-9]/g, '_')
-    return `oni_memory_${safeName}_${profile.nftId}_${timestamp}.json`
-  }
-  
-  return `oni_memory_export_${timestamp}.json`
 } 

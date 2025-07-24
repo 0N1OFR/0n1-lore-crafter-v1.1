@@ -51,7 +51,19 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
   }
 
   const exportAsJson = () => {
-    const dataStr = JSON.stringify(characterData, null, 2)
+    // Ensure personality settings are included
+    const dataToExport = {
+      ...characterData,
+      soulName: soulName
+    }
+    
+    // Generate personality settings if not already present
+    if (!dataToExport.personalitySettings) {
+      const { generatePersonalityFromSoul } = require('@/lib/personality-generator')
+      dataToExport.personalitySettings = generatePersonalityFromSoul(dataToExport)
+    }
+    
+    const dataStr = JSON.stringify(dataToExport, null, 2)
     const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`
 
     const exportFileDefaultName = `0N1_${characterData.pfpId}_lore.json`

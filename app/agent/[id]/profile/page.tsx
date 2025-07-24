@@ -12,6 +12,8 @@ import { CharacterDossier } from "@/components/character-dossier"
 import { getOpenSeaNftLink } from "@/lib/api"
 import { UnifiedSoulHeader } from "@/components/unified-soul-header"
 import { deleteSoul } from "@/lib/storage-wrapper"
+import { getMemoryProfile } from "@/lib/memory-types"
+import { getArchivedChats } from "@/lib/chat-archive"
 
 export default function ProfilePage() {
   const params = useParams()
@@ -41,14 +43,19 @@ export default function ProfilePage() {
   const handleExport = () => {
     if (!soul) return
     
-    const dataStr = JSON.stringify(soul.data, null, 2)
-    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`
-    const exportFileDefaultName = `${soul.data.soulName || "soul"}_${soul.data.pfpId}.json`
-
-    const linkElement = document.createElement("a")
-    linkElement.setAttribute("href", dataUri)
-    linkElement.setAttribute("download", exportFileDefaultName)
-    linkElement.click()
+    // Get memory profile if it exists
+    const memoryProfile = getMemoryProfile(soul.data.pfpId)
+    
+    // Get archived chats if they exist
+    const allArchivedChats = getArchivedChats()
+    const characterChats = allArchivedChats.filter((chat: any) => chat.characterId === soul.data.pfpId)
+    
+    // Use comprehensive export
+    const { exportCompleteSoul, downloadJSON, generateExportFilename } = require('@/lib/memory-export')
+    const exportData = exportCompleteSoul(soul, memoryProfile, characterChats)
+    const filename = generateExportFilename(soul.data.soulName || "soul", soul.data.pfpId, true)
+    
+    downloadJSON(exportData, filename)
   }
 
   const handleSoulChat = () => {
