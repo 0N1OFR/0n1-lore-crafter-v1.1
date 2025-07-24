@@ -1,5 +1,3 @@
-"use client"
-
 import { useState, useEffect, useCallback } from "react"
 import { useWallet } from "@/components/wallet/wallet-provider"
 
