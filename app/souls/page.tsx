@@ -146,16 +146,9 @@ export default function SoulsPage() {
           
           console.error(`OpenSea API error: ${response.status} - ${errorDetails}`)
           
-          // Set specific error message based on status
-          if (response.status === 401) {
-            setVerificationError("API authentication failed. Please check API key configuration.")
-          } else if (response.status === 429) {
-            setVerificationError("API rate limit exceeded. Please try again later.")
-          } else if (response.status >= 500) {
-            setVerificationError("OpenSea API is temporarily unavailable.")
-          } else {
-            setVerificationError(`API Error: ${errorDetails}`)
-          }
+          // Log error details but don't show them to users
+          console.warn(`OpenSea API error ${response.status}: ${errorDetails}`)
+          setOwnershipVerificationFailed(false) // Don't trigger the warning UI
           
           throw new Error(`API Error: ${response.status} - ${errorDetails}`)
         }
@@ -179,11 +172,9 @@ export default function SoulsPage() {
       } catch (apiErr) {
         console.error('OpenSea API error details:', apiErr)
         apiError = true
-        // Only show warning if no specific error was already set
-        if (!verificationError) {
-          setVerificationError("Unable to connect to OpenSea API")
-        }
-        setOwnershipVerificationFailed(true)
+        // Don't show API connection errors to users - just log them
+        console.warn("⚠️ OpenSea API connection failed - using local souls")
+        setOwnershipVerificationFailed(false) // Don't trigger the warning UI
       }
 
       // SECURITY FIX: Only show souls we can verify ownership for
@@ -542,47 +533,7 @@ export default function SoulsPage() {
           </Card>
         )}
 
-        {ownershipVerificationFailed && verificationError && (
-          <Card className="border border-yellow-500/30 bg-yellow-900/10 backdrop-blur-sm mb-6">
-            <CardContent className="py-4">
-              <div className="flex items-center space-x-3">
-                <AlertTriangle className="h-5 w-5 text-yellow-400" />
-                <div className="flex-1">
-                  <p className="text-yellow-300 font-medium">NFT Verification Issue</p>
-                  <p className="text-yellow-200/70 text-sm">
-                    {verificationError}
-                  </p>
-                  <div className="mt-3 flex gap-2">
-                    <Button
-                      onClick={() => {
-                        setOwnershipVerificationFailed(false)
-                        setVerificationError(null)
-                        setIsLoading(true)
-                        loadSoulsAndNfts()
-                      }}
-                      size="sm"
-                      variant="outline"
-                      className="border-yellow-500/30 text-yellow-300 hover:bg-yellow-900/20"
-                    >
-                      Retry Verification
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setOwnershipVerificationFailed(false)
-                        setVerificationError(null)
-                      }}
-                      size="sm"
-                      variant="ghost"
-                      className="text-yellow-300/50 hover:text-yellow-300"
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* NFT verification warning removed - API errors are handled silently */}
 
         {souls.length === 0 && !ownershipVerificationFailed ? (
           <Card className="border border-purple-500/30 bg-black/60 backdrop-blur-sm">
