@@ -317,6 +317,70 @@ export default function AgentPage() {
     return savedMemorySegments.filter(segment => segment.messageId === messageId)
   }
 
+  // Generate a welcome message based on current personality settings
+  const generatePersonalityWelcomeMessage = (soul: StoredSoul): string => {
+    const name = soul.data.soulName
+    const nftId = soul.data.pfpId
+    const settings = soul.data.personalitySettings
+    
+    // Base welcome template
+    let welcomeMessage = `Hello! I'm ${name}, your AI agent based on 0N1 Force #${nftId}.`
+    
+    // If no personality settings, use default welcome
+    if (!settings) {
+      return `${welcomeMessage} I embody all the lore and personality you've created for this character. How can I help you today?`
+    }
+    
+    // Customize based on personality traits
+    const isAggressive = settings.agreeableness < 30 || settings.directness > 80
+    const isFriendly = settings.agreeableness > 70 && settings.empathy > 70
+    const isSarcastic = settings.sarcasmLevel > 70
+    const isVerbose = settings.verbosity > 70
+    const isConcise = settings.verbosity < 30
+    const usesProfanity = settings.profanityUsage > 60
+    const isFormal = settings.formalityLevel > 70
+    const isCasual = settings.formalityLevel < 30
+    
+    // Generate personality-appropriate greeting
+    if (isAggressive) {
+      if (usesProfanity) {
+        welcomeMessage = `Yeah, I'm ${name}. NFT #${nftId}. What the fuck do you want?`
+      } else {
+        welcomeMessage = `I'm ${name}. NFT #${nftId}. Make it quick, I don't have all day.`
+      }
+    } else if (isFriendly) {
+      if (isCasual) {
+        welcomeMessage = `Hey there! I'm ${name}, your friendly AI from 0N1 Force #${nftId}! So excited to chat with you!`
+      } else {
+        welcomeMessage = `Greetings! I'm ${name}, your AI companion from 0N1 Force #${nftId}. It's wonderful to meet you.`
+      }
+    } else if (isSarcastic) {
+      welcomeMessage = `Oh great, another human. I'm ${name}, NFT #${nftId}. This should be... fascinating.`
+    } else if (isFormal) {
+      welcomeMessage = `Good day. I am ${name}, artificial intelligence agent designation 0N1 Force #${nftId}. How may I be of service?`
+    } else {
+      // Default personality-aware message
+      if (isVerbose) {
+        welcomeMessage = `Greetings and salutations! I am ${name}, the digital consciousness inhabiting 0N1 Force NFT #${nftId}. I've been eagerly awaiting our conversation, ready to share the depths of my experiences and perspectives with you.`
+      } else if (isConcise) {
+        welcomeMessage = `${name}. NFT #${nftId}. Ready.`
+      } else {
+        welcomeMessage = `I'm ${name}, AI agent for 0N1 Force #${nftId}. What brings you here?`
+      }
+    }
+    
+    // Add personality-specific suffixes based on other traits
+    if (settings.curiosityLevel > 80 && !isConcise) {
+      welcomeMessage += ` I'm curious - what's on your mind?`
+    } else if (settings.neuroticism > 80 && !isAggressive) {
+      welcomeMessage += ` I... I hope I can help you properly...`
+    } else if (settings.confidence > 90 && !isConcise) {
+      welcomeMessage += ` I'm the best AI you'll ever talk to.`
+    }
+    
+    return welcomeMessage
+  }
+
   // Start new chat function
   const handleStartNewChat = async () => {
     if (!soul) return
@@ -343,18 +407,27 @@ export default function AgentPage() {
       setSavedMemorySegments([])
       setSessionStartTime(new Date())
 
-      // Reset memory state to fresh conversation - clear all messages
+      // Reset memory state to fresh conversation with personality-aware welcome
       if (memory) {
         const freshMemory = createCharacterMemory(soul.data.pfpId, soul.data.soulName)
         
-        // Don't add any welcome message - keep the chat completely empty
-        setMessages([])
+        // Generate personality-aware welcome message
+        const welcomeMessage: Message = {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: generatePersonalityWelcomeMessage(soul),
+          timestamp: new Date(),
+        }
         
-        // Save the fresh memory without any messages
-        setMemory(freshMemory)
-        saveCharacterMemories(soul.data.pfpId, freshMemory)
+        // Set the welcome message
+        setMessages([welcomeMessage])
         
-        setEnhancedMemory(upgradeToEnhancedMemory(freshMemory))
+        // Save the fresh memory with welcome message
+        const updatedMemory = addMessageToMemory(freshMemory, welcomeMessage)
+        setMemory(updatedMemory)
+        saveCharacterMemories(soul.data.pfpId, updatedMemory)
+        
+        setEnhancedMemory(upgradeToEnhancedMemory(updatedMemory))
         setIsFirstConversation(true)
         
         // Set a flag to indicate new chat was started
@@ -617,8 +690,21 @@ export default function AgentPage() {
           }))
           setMessages(memoryMessages)
 
-          // Don't add any welcome message - let the user start the conversation
-          // This keeps the chat completely empty until the user sends a message
+          // Add personality-aware welcome message for empty conversations
+          if (characterMemory.messages.length === 0) {
+            const welcomeMessage: Message = {
+              id: Date.now().toString(),
+              role: "assistant",
+              content: generatePersonalityWelcomeMessage(foundSoul),
+              timestamp: new Date(),
+            }
+            setMessages([welcomeMessage])
+
+            // Add to memory
+            const updatedMemory = addMessageToMemory(characterMemory, welcomeMessage)
+            setMemory(updatedMemory)
+            saveCharacterMemories(nftId, updatedMemory)
+          }
 
           // Get memory stats
           const stats = getMemoryStats(nftId)
