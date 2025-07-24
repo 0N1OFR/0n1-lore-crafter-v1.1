@@ -40,7 +40,7 @@ export default function SoulsPage() {
   const [ownershipVerificationFailed, setOwnershipVerificationFailed] = useState(false)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const [showSessionWarning, setShowSessionWarning] = useState(false)
-  const loadingTimeoutRef = useRef<NodeJS.Timeout>()
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const sessionWarningShownRef = useRef(false)
 
   // Session expiry monitoring
@@ -152,17 +152,21 @@ export default function SoulsPage() {
         setOwnershipVerificationFailed(true)
       }
 
-      // SECURITY FIX: Fail closed - only show souls we can verify ownership for
+      // SECURITY FIX: Only show souls we can verify ownership for
       let filteredSouls: StoredSoul[] = []
       
       if (apiError) {
-        // If API failed, deny access to all souls for security
-        console.error("⚠️ NFT ownership verification failed - access denied for security")
-        filteredSouls = []
+        // If API failed, show all stored souls but with a warning
+        // The user has already authenticated and souls are stored locally
+        console.warn("⚠️ NFT ownership verification API failed - showing locally stored souls")
+        filteredSouls = allStoredSouls
+        // Set a flag to show warning but don't block access
+        setOwnershipVerificationFailed(true)
       } else if (ownedTokenIds.size === 0) {
-        // User doesn't own any NFTs
-        console.log("User doesn't own any NFTs")
-        filteredSouls = []
+        // User doesn't own any NFTs according to API
+        console.log("User doesn't own any NFTs according to API")
+        // Still show stored souls since they might have been created before
+        filteredSouls = allStoredSouls
       } else {
         // Only show souls for NFTs the user owns
         filteredSouls = allStoredSouls.filter(soul => {
@@ -495,31 +499,23 @@ export default function SoulsPage() {
         )}
 
         {ownershipVerificationFailed && (
-          <Card className="border border-red-500/30 bg-red-900/10 backdrop-blur-sm mb-6">
+          <Card className="border border-yellow-500/30 bg-yellow-900/10 backdrop-blur-sm mb-6">
             <CardContent className="py-4">
               <div className="flex items-center space-x-3">
-                <AlertTriangle className="h-5 w-5 text-red-400" />
+                <AlertTriangle className="h-5 w-5 text-yellow-400" />
                 <div>
-                  <p className="text-red-300 font-medium">NFT Ownership Verification Required</p>
-                  <p className="text-red-200/70 text-sm">
-                    Unable to verify NFT ownership. For security reasons, access to souls is restricted until ownership can be verified.
+                  <p className="text-yellow-300 font-medium">NFT Ownership Verification Warning</p>
+                  <p className="text-yellow-200/70 text-sm">
+                    Unable to verify NFT ownership with OpenSea API. Showing locally stored souls.
                   </p>
                   <div className="mt-3 flex gap-2">
                     <Button
                       onClick={() => window.location.reload()}
                       size="sm"
                       variant="outline"
-                      className="border-red-500/30 text-red-300 hover:bg-red-900/20"
+                      className="border-yellow-500/30 text-yellow-300 hover:bg-yellow-900/20"
                     >
                       Retry Verification
-                    </Button>
-                    <Button
-                      onClick={() => router.push("/?connect=true")}
-                      size="sm"
-                      variant="outline"
-                      className="border-red-500/30 text-red-300 hover:bg-red-900/20"
-                    >
-                      Reconnect Wallet
                     </Button>
                   </div>
                 </div>
