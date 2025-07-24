@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   // Try a simple API call
   if (OPENSEA_API_KEY && OPENSEA_API_KEY !== 'your_opensea_api_key_here') {
     try {
-      const testUrl = 'https://api.opensea.io/v2/collections/0n1-force/stats'
+      const testUrl = 'https://api.opensea.io/api/v2/collections/0n1-force/stats'
       const response = await fetch(testUrl, {
         headers: {
           'X-API-KEY': OPENSEA_API_KEY,
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     if (testTokenId) {
       try {
         const forceContract = COLLECTIONS.force.contractAddress
-        const nftUrl = `https://api.opensea.io/v2/chain/ethereum/contract/${forceContract}/nfts/${testTokenId}`
+        const nftUrl = `https://api.opensea.io/api/v2/chain/ethereum/contract/${forceContract}/nfts/${testTokenId}`
         
         const nftResponse = await fetch(nftUrl, {
           headers: {
@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
           asset_contract_address: COLLECTIONS.force.contractAddress,
           limit: '10'
         })
-        const addressUrl = `https://api.opensea.io/v2/chain/ethereum/account/${encodeURIComponent(testAddress)}/nfts?${params.toString()}`
+        const addressUrl = `https://api.opensea.io/api/v2/chain/ethereum/account/${encodeURIComponent(testAddress)}/nfts?${params.toString()}`
         
         const addressResponse = await fetch(addressUrl, {
           headers: {

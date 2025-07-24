@@ -57,7 +57,7 @@ async function fetchCollectionNfts(address: string, collection: CollectionKey): 
     asset_contract_address: config.contractAddress,
     limit: '50'
   })
-  const url = `https://api.opensea.io/v2/chain/ethereum/account/${encodeURIComponent(address)}/nfts?${params.toString()}`
+  const url = `https://api.opensea.io/api/v2/chain/ethereum/account/${encodeURIComponent(address)}/nfts?${params.toString()}`
   
   console.log(`Fetching ${config.displayName} NFTs: ${url}`)
   
@@ -112,7 +112,7 @@ async function fetchCollectionNfts(address: string, collection: CollectionKey): 
 // New function to fetch Frame NFT by specific token ID
 async function fetchFrameNftByTokenId(tokenId: string): Promise<any | null> {
   const frameContract = COLLECTIONS['frame' as CollectionKey].contractAddress
-  const url = `https://api.opensea.io/v2/chain/ethereum/contract/${frameContract}/nfts/${tokenId}`
+  const url = `https://api.opensea.io/api/v2/chain/ethereum/contract/${frameContract}/nfts/${tokenId}`
   
   console.log(`🎯 Fetching Frame NFT #${tokenId} directly: ${url}`)
   
