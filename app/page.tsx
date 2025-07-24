@@ -1,3 +1,5 @@
+"use client"
+
 import { MultiStepForm } from "@/components/multi-step-form"
 import { SplashScreen } from "@/components/splash-screen"
 
