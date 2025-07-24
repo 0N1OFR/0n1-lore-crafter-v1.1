@@ -137,3 +137,21 @@ export function deleteSoul(id: string): boolean {
   
   return true
 }
+
+// Stub functions for hybrid storage compatibility
+export function setCurrentWalletAddress(address: string) {
+  // No-op for localStorage-only mode
+  console.log("setCurrentWalletAddress called:", address)
+}
+
+export function initializeHybridStorage(address: string) {
+  // No-op for localStorage-only mode
+  console.log("initializeHybridStorage called:", address)
+  return Promise.resolve()
+}
+
+export function manualSync() {
+  // No-op for localStorage-only mode
+  console.log("manualSync called")
+  return Promise.resolve({ success: true, message: "Using localStorage only" })
+}
