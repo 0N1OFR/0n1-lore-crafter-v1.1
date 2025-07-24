@@ -167,15 +167,12 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
   }
 
   try {
-    // Check if OpenSea API is configured
-    if (!isOpenSeaConfigured()) {
-      console.log('⚠️ OpenSea API key not configured - returning empty response')
-      return NextResponse.json({ 
-        characters: [],
-        totalCount: 0,
-        warning: 'OpenSea API not configured. NFT ownership verification disabled.'
-      })
-    }
+    // Log API configuration status but don't block
+    console.log('🔐 OpenSea API Configuration:', {
+      keyExists: !!OPENSEA_API_KEY,
+      keyLength: OPENSEA_API_KEY ? OPENSEA_API_KEY.length : 0,
+      timestamp: new Date().toISOString()
+    })
 
     // First, fetch Force NFTs (these work reliably)
     const forceNfts = await fetchCollectionNfts(walletAddress, 'force' as CollectionKey)

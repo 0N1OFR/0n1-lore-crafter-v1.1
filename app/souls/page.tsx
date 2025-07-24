@@ -38,6 +38,7 @@ export default function SoulsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [deployedSouls, setDeployedSouls] = useState<Set<string>>(new Set())
   const [ownershipVerificationFailed, setOwnershipVerificationFailed] = useState(false)
+  const [verificationError, setVerificationError] = useState<string | null>(null)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
   const [showSessionWarning, setShowSessionWarning] = useState(false)
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -145,9 +146,15 @@ export default function SoulsPage() {
           
           console.error(`OpenSea API error: ${response.status} - ${errorDetails}`)
           
-          // Only show warning if it's not a rate limit or temporary issue
-          if (response.status !== 429 && response.status >= 500) {
-            console.log("OpenSea API temporarily unavailable, using local data")
+          // Set specific error message based on status
+          if (response.status === 401) {
+            setVerificationError("API authentication failed. Please check API key configuration.")
+          } else if (response.status === 429) {
+            setVerificationError("API rate limit exceeded. Please try again later.")
+          } else if (response.status >= 500) {
+            setVerificationError("OpenSea API is temporarily unavailable.")
+          } else {
+            setVerificationError(`API Error: ${errorDetails}`)
           }
           
           throw new Error(`API Error: ${response.status} - ${errorDetails}`)
@@ -157,6 +164,10 @@ export default function SoulsPage() {
         const characters = ownedNftData.characters || []
         setOwnedNfts(characters)
         
+        // If we got a successful response, clear any errors
+        setOwnershipVerificationFailed(false)
+        setVerificationError(null)
+        
         // Create set of owned token IDs - normalize them
         ownedTokenIds = new Set(characters.map((char: any) => {
           // Normalize by removing leading zeros
@@ -164,10 +175,14 @@ export default function SoulsPage() {
           return normalized
         }))
         console.log("Owned token IDs from API (normalized):", Array.from(ownedTokenIds))
+        console.log("✅ OpenSea API call successful")
       } catch (apiErr) {
         console.error('OpenSea API error details:', apiErr)
         apiError = true
-        // Only show warning, don't block functionality
+        // Only show warning if no specific error was already set
+        if (!verificationError) {
+          setVerificationError("Unable to connect to OpenSea API")
+        }
         setOwnershipVerificationFailed(true)
       }
 
@@ -175,19 +190,18 @@ export default function SoulsPage() {
       let filteredSouls: StoredSoul[] = []
       
       if (apiError) {
-        // If API failed, show all stored souls but with a warning
+        // If API failed, show all stored souls
         // The user has already authenticated and souls are stored locally
         console.warn("⚠️ NFT ownership verification API failed - showing locally stored souls")
         filteredSouls = allStoredSouls
-        // Set a flag to show warning but don't block access
-        setOwnershipVerificationFailed(true)
       } else if (ownedTokenIds.size === 0) {
-        // User doesn't own any NFTs according to API
-        console.log("User doesn't own any NFTs according to API")
-        // Still show stored souls since they might have been created before
+        // No NFTs found but API call succeeded - this might be correct
+        console.log("API returned no NFTs for this wallet")
+        // Show any stored souls the user has created
         filteredSouls = allStoredSouls
       } else {
-        // Only show souls for NFTs the user owns
+        // API succeeded and returned NFTs - filter souls to only owned NFTs
+        console.log("✅ Filtering souls based on owned NFTs")
         filteredSouls = allStoredSouls.filter(soul => {
           // Normalize the soul's pfpId for comparison
           const normalizedSoulId = soul.data.pfpId.replace(/^0+/, "") || "0"
@@ -195,6 +209,17 @@ export default function SoulsPage() {
           console.log(`Soul ${soul.data.pfpId} (normalized: ${normalizedSoulId}) - Owner has NFT: ${hasNft}`)
           return hasNft
         })
+        
+        // If user has souls for NFTs they no longer own, still show them with a note
+        const unownedSouls = allStoredSouls.filter(soul => {
+          const normalizedSoulId = soul.data.pfpId.replace(/^0+/, "") || "0"
+          return !ownedTokenIds.has(normalizedSoulId)
+        })
+        
+        if (unownedSouls.length > 0) {
+          console.log(`📝 Found ${unownedSouls.length} souls for NFTs no longer owned - including them`)
+          filteredSouls = allStoredSouls // Show all souls if some are for unowned NFTs
+        }
       }
       
       console.log("Filtered souls:", filteredSouls)
@@ -517,20 +542,21 @@ export default function SoulsPage() {
           </Card>
         )}
 
-        {ownershipVerificationFailed && (
+        {ownershipVerificationFailed && verificationError && (
           <Card className="border border-yellow-500/30 bg-yellow-900/10 backdrop-blur-sm mb-6">
             <CardContent className="py-4">
               <div className="flex items-center space-x-3">
                 <AlertTriangle className="h-5 w-5 text-yellow-400" />
-                <div>
-                  <p className="text-yellow-300 font-medium">NFT Verification Unavailable</p>
+                <div className="flex-1">
+                  <p className="text-yellow-300 font-medium">NFT Verification Issue</p>
                   <p className="text-yellow-200/70 text-sm">
-                    OpenSea API is not configured or temporarily unavailable. Your locally stored souls are shown below.
+                    {verificationError}
                   </p>
                   <div className="mt-3 flex gap-2">
                     <Button
                       onClick={() => {
                         setOwnershipVerificationFailed(false)
+                        setVerificationError(null)
                         setIsLoading(true)
                         loadSoulsAndNfts()
                       }}
@@ -541,7 +567,10 @@ export default function SoulsPage() {
                       Retry Verification
                     </Button>
                     <Button
-                      onClick={() => setOwnershipVerificationFailed(false)}
+                      onClick={() => {
+                        setOwnershipVerificationFailed(false)
+                        setVerificationError(null)
+                      }}
                       size="sm"
                       variant="ghost"
                       className="text-yellow-300/50 hover:text-yellow-300"
