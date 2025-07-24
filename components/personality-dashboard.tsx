@@ -13,6 +13,12 @@ import { Brain, Save, RotateCcw, Shuffle } from "lucide-react"
 import type { PersonalitySettings } from "@/lib/types"
 import type { StoredSoul } from "@/lib/storage-wrapper"
 import { generatePersonalityFromSoul, createDefaultPersonalitySettings } from "@/lib/personality-generator"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface PersonalityDashboardProps {
   soul: StoredSoul
@@ -69,10 +75,10 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
   }
 
   const handleReset = () => {
-    // If soul has saved personality settings, use those
-    // Otherwise generate from soul data (deterministic based on NFT ID)
-    const defaultSettings = soul.data.personalitySettings || generatePersonalityFromSoul(soul.data)
-    setPersonalitySettings(defaultSettings)
+    // ALWAYS regenerate from soul questionnaire data
+    // This ensures we get the original personality based on how the user filled out the questionnaire
+    const originalSettings = generatePersonalityFromSoul(soul.data)
+    setPersonalitySettings(originalSettings)
     setHasUnsavedChanges(true)
   }
 
@@ -385,15 +391,24 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
         </div>
         
         <div className="flex items-center space-x-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-purple-500/30 hover:bg-purple-900/20"
-            onClick={handleReset}
-          >
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Reset to Soul
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-purple-500/30 hover:bg-purple-900/20"
+                  onClick={handleReset}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reset to Soul
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reset personality to original values based on questionnaire answers</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           
           <Button
             variant="outline"
