@@ -19,6 +19,37 @@ function isOpenSeaConfigured(): boolean {
   return isConfigured
 }
 
+// Helper function to normalize NFT data from different OpenSea response formats
+function normalizeNftData(nft: any): any {
+  // Handle different contract formats
+  let contractAddress = '';
+  if (typeof nft.contract === 'string') {
+    contractAddress = nft.contract;
+  } else if (nft.contract?.address) {
+    contractAddress = nft.contract.address;
+  } else if (nft.asset_contract?.address) {
+    contractAddress = nft.asset_contract.address;
+  }
+
+  // Handle different identifier formats
+  const identifier = nft.identifier || nft.token_id || nft.tokenId || '';
+
+  // Handle different image URL formats
+  const imageUrl = nft.image_url || nft.image || nft.image_original_url || nft.image_preview_url || '';
+
+  // Handle different name formats
+  const name = nft.name || nft.collection?.name || `Token #${identifier}`;
+
+  return {
+    identifier,
+    contract: contractAddress,
+    image_url: imageUrl,
+    name,
+    // Preserve original data for debugging
+    _original: nft
+  };
+}
+
 async function fetchCollectionNfts(address: string, collection: CollectionKey): Promise<any[]> {
   const config = COLLECTIONS[collection]
   // Use contract address instead of collection slug for more reliable results
@@ -55,11 +86,16 @@ async function fetchCollectionNfts(address: string, collection: CollectionKey): 
       throw new Error(`Rate limited by OpenSea. Try again later.`)
     }
     
+    // For other errors, log but don't throw - return empty array
+    console.warn(`⚠️ Returning empty array for ${config.displayName} due to API error`)
     return []
   }
 
   const data = await response.json()
-  const nfts = data.nfts || []
+  const rawNfts = data.nfts || data.assets || [] // Handle different response formats
+  
+  // Normalize NFT data
+  const nfts = rawNfts.map(normalizeNftData)
   
   console.log(`Found ${nfts.length} ${config.displayName} NFTs`)
   console.log(`${config.displayName} NFT IDs:`, nfts.map((nft: any) => nft.identifier))
@@ -95,6 +131,8 @@ async function fetchFrameNftByTokenId(tokenId: string): Promise<any | null> {
         statusText: response.statusText,
         errorBody: errorBody.substring(0, 200)
       })
+      
+      // Don't throw error, just return null so Force NFT still shows up
       return null
     }
 
@@ -115,18 +153,17 @@ async function fetchFrameNftByTokenId(tokenId: string): Promise<any | null> {
     return null
   } catch (error) {
     console.log(`❌ Error fetching Frame NFT #${tokenId}:`, error)
+    // Don't throw - return null so we don't block Force NFT display
     return null
   }
 }
 
 // Helper function to validate NFT has required properties
 function isValidNft(nft: any): boolean {
+  // Make validation less strict - only require identifier and contract
   return nft && 
          nft.identifier && 
-         nft.contract && 
-         nft.name && 
-         nft.image_url &&
-         nft.image_url.trim() !== ''
+         nft.contract
 }
 
 export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
@@ -181,17 +218,33 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
     const validForceNfts = forceNfts.filter(nft => {
       const config = COLLECTIONS['force' as CollectionKey]
       const isValid = isValidNft(nft)
-      const hasCorrectContract = nft.contract?.toLowerCase() === config.contractAddress.toLowerCase()
       
-      if (!isValid || !hasCorrectContract) {
-        console.log(`🚫 REJECTED 0N1 Force NFT #${nft.identifier} - Wrong contract!`)
-        console.log(`   Expected: ${config.contractAddress.toLowerCase()}`)
-        console.log(`   Got:      ${nft.contract?.toLowerCase()}`)
-        console.log(`   This NFT is from a different collection and will be ignored.`)
+      // Normalize contract addresses for comparison
+      const expectedContract = config.contractAddress.toLowerCase()
+      const actualContract = nft.contract?.toLowerCase() || ''
+      
+      // Also check if it's a string or object with address property
+      const contractAddress = typeof nft.contract === 'string' 
+        ? nft.contract.toLowerCase() 
+        : nft.contract?.address?.toLowerCase() || ''
+      
+      const hasCorrectContract = actualContract === expectedContract || contractAddress === expectedContract
+      
+      if (!isValid) {
+        console.log(`🚫 REJECTED 0N1 Force NFT #${nft.identifier} - Invalid NFT data`)
         return false
       }
       
-      console.log(`✅ ACCEPTED 0N1 Force NFT #${nft.identifier} - Correct contract: ${nft.contract}`)
+      if (!hasCorrectContract) {
+        console.log(`🚫 REJECTED 0N1 Force NFT #${nft.identifier} - Wrong contract!`)
+        console.log(`   Expected: ${expectedContract}`)
+        console.log(`   Got (actual): ${actualContract}`)
+        console.log(`   Got (address): ${contractAddress}`)
+        console.log(`   Raw contract data:`, nft.contract)
+        return false
+      }
+      
+      console.log(`✅ ACCEPTED 0N1 Force NFT #${nft.identifier} - Correct contract: ${actualContract}`)
       return true
     })
 
@@ -266,11 +319,11 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
 
       const character: UnifiedCharacter = {
         tokenId,
-        forceImageUrl: forceNft.image_url,
-        frameImageUrl: hasActualFrame ? frameNft!.image_url : null, // null if no Frame NFT owned
+        forceImageUrl: forceNft.image_url || null, // Allow null image URLs
+        frameImageUrl: hasActualFrame ? (frameNft!.image_url || null) : null,
         hasForce: true,
-        hasFrame: hasActualFrame, // Only true if user actually owns the Frame NFT
-        displayName: forceNft.name || `0N1 #${tokenId}`
+        hasFrame: hasActualFrame,
+        displayName: forceNft.name || `0N1 #${tokenId}` // Fallback for missing names
       }
 
       console.log('🎯 Adding character to map:', character)
@@ -284,11 +337,11 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
         
         const character: UnifiedCharacter = {
           tokenId,
-          forceImageUrl: null, // null if no Force NFT owned
-          frameImageUrl: frameNft.image_url,
+          forceImageUrl: null,
+          frameImageUrl: frameNft.image_url || null, // Allow null image URLs
           hasForce: false,
           hasFrame: true,
-          displayName: frameNft.name || `0N1 #${tokenId}`
+          displayName: frameNft.name || `0N1 #${tokenId}` // Fallback for missing names
         }
 
         characterMap.set(tokenId, character)
@@ -370,12 +423,23 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
   } catch (error) {
     console.error('❌ API Error:', error)
     
-    // Fallback: return empty characters array on error
+    // More detailed error response
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const isRateLimit = errorMessage.includes('Rate limited')
+    const isAuthError = errorMessage.includes('authentication') || errorMessage.includes('401')
+    
     return NextResponse.json({ 
       error: 'Failed to fetch NFTs', 
-      details: error instanceof Error ? error.message : 'Unknown error',
+      details: errorMessage,
+      errorType: isRateLimit ? 'RATE_LIMIT' : isAuthError ? 'AUTH_ERROR' : 'API_ERROR',
       characters: [],
-      totalCount: 0
-    }, { status: 500 })
+      totalCount: 0,
+      troubleshooting: {
+        checkAuth: isAuthError,
+        checkRateLimit: isRateLimit,
+        debugUrl: `/api/opensea/debug?address=${walletAddress}`,
+        message: 'If assets are missing, try the debug URL to diagnose the issue'
+      }
+    }, { status: isRateLimit ? 429 : isAuthError ? 401 : 500 })
   }
 })
