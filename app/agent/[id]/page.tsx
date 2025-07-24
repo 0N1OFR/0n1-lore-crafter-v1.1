@@ -343,12 +343,31 @@ export default function AgentPage() {
       setSavedMemorySegments([])
       setSessionStartTime(new Date())
 
-      // Reset memory state to fresh conversation
+      // Reset memory state to fresh conversation - clear all messages
       if (memory) {
         const freshMemory = createCharacterMemory(soul.data.pfpId, soul.data.soulName)
-        setMemory(freshMemory)
-        setEnhancedMemory(upgradeToEnhancedMemory(freshMemory))
+        
+        // Add a new welcome message
+        const welcomeMessage: Message = {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: `Hello! I'm ${soul.data.soulName}, your AI agent based on 0N1 Force #${soul.data.pfpId}. I embody all the lore and personality you've created for this character. How can I help you today?`,
+          timestamp: new Date(),
+        }
+        
+        // Set only the welcome message
+        setMessages([welcomeMessage])
+        
+        // Save the fresh memory with welcome message
+        const updatedMemory = addMessageToMemory(freshMemory, welcomeMessage)
+        setMemory(updatedMemory)
+        saveCharacterMemories(soul.data.pfpId, updatedMemory)
+        
+        setEnhancedMemory(upgradeToEnhancedMemory(updatedMemory))
         setIsFirstConversation(true)
+        
+        // Set a flag to indicate new chat was started
+        sessionStorage.setItem(`new-chat-started-${soul.data.pfpId}`, 'true')
       }
 
       // Show success notification
@@ -558,9 +577,12 @@ export default function AgentPage() {
         setSoul(foundSoul)
 
         if (foundSoul) {
+          // Check if a new chat was started
+          const newChatStarted = sessionStorage.getItem(`new-chat-started-${nftId}`)
+          
           // Load existing memory
           let characterMemory = getCharacterMemories(nftId)
-          if (!characterMemory) {
+          if (!characterMemory || newChatStarted) {
             characterMemory = createCharacterMemory(nftId, foundSoul.data.soulName)
             setIsFirstConversation(true)
           }
@@ -584,6 +606,16 @@ export default function AgentPage() {
             saveMemoryProfile(profile)
           }
           setMemoryProfile(profile)
+
+          // If new chat was started, we already have the welcome message set
+          if (newChatStarted) {
+            // Clear the flag
+            sessionStorage.removeItem(`new-chat-started-${nftId}`)
+            // Get memory stats
+            const stats = getMemoryStats(nftId)
+            setMemoryStats(stats)
+            return // Don't load old messages
+          }
 
           // Load and set messages from memory
           const memoryMessages: Message[] = characterMemory.messages.map((msg, index) => ({
@@ -635,7 +667,7 @@ export default function AgentPage() {
     
     loadAndInitializeAgent()
     setIsInitializing(false)
-  }, [params.id]) // Removed model, temperature, maxTokens dependencies since they're handled separately now
+  }, [params.id])
 
   // Ownership verification effect
   useEffect(() => {
