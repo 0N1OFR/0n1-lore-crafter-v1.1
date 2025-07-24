@@ -6,6 +6,11 @@ import { withOptionalAuth, getRequestWalletAddress } from '@/lib/auth-middleware
 
 const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY
 
+// Check if OpenSea API is properly configured
+function isOpenSeaConfigured(): boolean {
+  return !!OPENSEA_API_KEY && OPENSEA_API_KEY !== 'your_opensea_api_key_here'
+}
+
 async function fetchCollectionNfts(address: string, collection: CollectionKey): Promise<any[]> {
   const config = COLLECTIONS[collection]
   // Use contract address instead of collection slug for more reliable results
@@ -133,6 +138,16 @@ export const GET = withOptionalAuth(async (req: NextRequest, sessionInfo) => {
   }
 
   try {
+    // Check if OpenSea API is configured
+    if (!isOpenSeaConfigured()) {
+      console.log('⚠️ OpenSea API key not configured - returning empty response')
+      return NextResponse.json({ 
+        characters: [],
+        totalCount: 0,
+        warning: 'OpenSea API not configured. NFT ownership verification disabled.'
+      })
+    }
+
     // First, fetch Force NFTs (these work reliably)
     const forceNfts = await fetchCollectionNfts(walletAddress, 'force' as CollectionKey)
 

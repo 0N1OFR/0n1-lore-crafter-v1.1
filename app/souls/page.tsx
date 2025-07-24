@@ -131,8 +131,26 @@ export default function SoulsPage() {
         }
         
         const response = await fetch(`/api/opensea/owned`, { headers })
+        
+        // Check for specific error types
         if (!response.ok) {
-          throw new Error('Failed to fetch owned NFTs')
+          const errorText = await response.text()
+          let errorDetails = ''
+          try {
+            const errorJson = JSON.parse(errorText)
+            errorDetails = errorJson.error || errorJson.message || ''
+          } catch {
+            errorDetails = errorText
+          }
+          
+          console.error(`OpenSea API error: ${response.status} - ${errorDetails}`)
+          
+          // Only show warning if it's not a rate limit or temporary issue
+          if (response.status !== 429 && response.status >= 500) {
+            console.log("OpenSea API temporarily unavailable, using local data")
+          }
+          
+          throw new Error(`API Error: ${response.status} - ${errorDetails}`)
         }
         
         const ownedNftData = await response.json()
@@ -147,8 +165,9 @@ export default function SoulsPage() {
         }))
         console.log("Owned token IDs from API (normalized):", Array.from(ownedTokenIds))
       } catch (apiErr) {
-        console.error('OpenSea API error:', apiErr)
+        console.error('OpenSea API error details:', apiErr)
         apiError = true
+        // Only show warning, don't block functionality
         setOwnershipVerificationFailed(true)
       }
 
@@ -504,18 +523,30 @@ export default function SoulsPage() {
               <div className="flex items-center space-x-3">
                 <AlertTriangle className="h-5 w-5 text-yellow-400" />
                 <div>
-                  <p className="text-yellow-300 font-medium">NFT Ownership Verification Warning</p>
+                  <p className="text-yellow-300 font-medium">NFT Verification Unavailable</p>
                   <p className="text-yellow-200/70 text-sm">
-                    Unable to verify NFT ownership with OpenSea API. Showing locally stored souls.
+                    OpenSea API is not configured or temporarily unavailable. Your locally stored souls are shown below.
                   </p>
                   <div className="mt-3 flex gap-2">
                     <Button
-                      onClick={() => window.location.reload()}
+                      onClick={() => {
+                        setOwnershipVerificationFailed(false)
+                        setIsLoading(true)
+                        loadSoulsAndNfts()
+                      }}
                       size="sm"
                       variant="outline"
                       className="border-yellow-500/30 text-yellow-300 hover:bg-yellow-900/20"
                     >
                       Retry Verification
+                    </Button>
+                    <Button
+                      onClick={() => setOwnershipVerificationFailed(false)}
+                      size="sm"
+                      variant="ghost"
+                      className="text-yellow-300/50 hover:text-yellow-300"
+                    >
+                      Dismiss
                     </Button>
                   </div>
                 </div>
