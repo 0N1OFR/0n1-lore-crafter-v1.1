@@ -8,7 +8,15 @@ const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY
 
 // Check if OpenSea API is properly configured
 function isOpenSeaConfigured(): boolean {
-  return !!OPENSEA_API_KEY && OPENSEA_API_KEY !== 'your_opensea_api_key_here'
+  const isConfigured = !!OPENSEA_API_KEY && OPENSEA_API_KEY !== 'your_opensea_api_key_here'
+  console.log(`🔑 OpenSea API Key Status:`, {
+    exists: !!OPENSEA_API_KEY,
+    length: OPENSEA_API_KEY ? OPENSEA_API_KEY.length : 0,
+    startsWithCorrectPrefix: OPENSEA_API_KEY ? OPENSEA_API_KEY.substring(0, 4) : 'N/A',
+    isPlaceholder: OPENSEA_API_KEY === 'your_opensea_api_key_here',
+    isConfigured
+  })
+  return isConfigured
 }
 
 async function fetchCollectionNfts(address: string, collection: CollectionKey): Promise<any[]> {
@@ -30,7 +38,23 @@ async function fetchCollectionNfts(address: string, collection: CollectionKey): 
   })
 
   if (!response.ok) {
-    console.log(`Failed to fetch ${config.displayName} NFTs: ${response.status}`)
+    const errorBody = await response.text()
+    console.error(`❌ Failed to fetch ${config.displayName} NFTs:`, {
+      status: response.status,
+      statusText: response.statusText,
+      errorBody: errorBody.substring(0, 200), // First 200 chars of error
+      headers: {
+        'x-ratelimit-limit': response.headers.get('x-ratelimit-limit'),
+        'x-ratelimit-remaining': response.headers.get('x-ratelimit-remaining'),
+        'x-ratelimit-reset': response.headers.get('x-ratelimit-reset'),
+      }
+    })
+    
+    // If rate limited, throw specific error
+    if (response.status === 429) {
+      throw new Error(`Rate limited by OpenSea. Try again later.`)
+    }
+    
     return []
   }
 
@@ -65,7 +89,12 @@ async function fetchFrameNftByTokenId(tokenId: string): Promise<any | null> {
     })
 
     if (!response.ok) {
-      console.log(`❌ Frame NFT #${tokenId} not found or not owned: ${response.status}`)
+      const errorBody = await response.text()
+      console.log(`❌ Frame NFT #${tokenId} fetch failed:`, {
+        status: response.status,
+        statusText: response.statusText,
+        errorBody: errorBody.substring(0, 200)
+      })
       return null
     }
 
