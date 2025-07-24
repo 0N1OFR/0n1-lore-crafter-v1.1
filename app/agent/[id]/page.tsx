@@ -347,23 +347,14 @@ export default function AgentPage() {
       if (memory) {
         const freshMemory = createCharacterMemory(soul.data.pfpId, soul.data.soulName)
         
-        // Add a new welcome message
-        const welcomeMessage: Message = {
-          id: Date.now().toString(),
-          role: "assistant",
-          content: `Hello! I'm ${soul.data.soulName}, your AI agent based on 0N1 Force #${soul.data.pfpId}. I embody all the lore and personality you've created for this character. How can I help you today?`,
-          timestamp: new Date(),
-        }
+        // Don't add any welcome message - keep the chat completely empty
+        setMessages([])
         
-        // Set only the welcome message
-        setMessages([welcomeMessage])
+        // Save the fresh memory without any messages
+        setMemory(freshMemory)
+        saveCharacterMemories(soul.data.pfpId, freshMemory)
         
-        // Save the fresh memory with welcome message
-        const updatedMemory = addMessageToMemory(freshMemory, welcomeMessage)
-        setMemory(updatedMemory)
-        saveCharacterMemories(soul.data.pfpId, updatedMemory)
-        
-        setEnhancedMemory(upgradeToEnhancedMemory(updatedMemory))
+        setEnhancedMemory(upgradeToEnhancedMemory(freshMemory))
         setIsFirstConversation(true)
         
         // Set a flag to indicate new chat was started
@@ -626,21 +617,8 @@ export default function AgentPage() {
           }))
           setMessages(memoryMessages)
 
-          // Add welcome message only for first conversation
-          if (characterMemory.messages.length === 0) {
-            const welcomeMessage: Message = {
-              id: Date.now().toString(),
-              role: "assistant",
-              content: `Hello! I'm ${foundSoul.data.soulName}, your AI agent based on 0N1 Force #${foundSoul.data.pfpId}. I embody all the lore and personality you've created for this character. How can I help you today?`,
-              timestamp: new Date(),
-            }
-            setMessages([welcomeMessage])
-
-            // Add to memory
-            const updatedMemory = addMessageToMemory(characterMemory, welcomeMessage)
-            setMemory(updatedMemory)
-            saveCharacterMemories(nftId, updatedMemory)
-          }
+          // Don't add any welcome message - let the user start the conversation
+          // This keeps the chat completely empty until the user sends a message
 
           // Get memory stats
           const stats = getMemoryStats(nftId)
