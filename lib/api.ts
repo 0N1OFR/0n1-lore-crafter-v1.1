@@ -24,7 +24,10 @@ export async function fetchNftData(tokenId: string): Promise<{ traits: Trait[]; 
     const requestPromise = (async () => {
       try {
         // Use our own API route to avoid exposing the API key in client-side code
-        const response = await fetch(`/api/opensea?tokenId=${normalizedTokenId}`, {
+        const params = new URLSearchParams({
+          tokenId: normalizedTokenId
+        })
+        const response = await fetch(`/api/opensea?${params.toString()}`, {
           next: { revalidate: 86400 }, // Cache for 24 hours - NFT metadata rarely changes
         })
 

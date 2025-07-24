@@ -152,7 +152,10 @@ export default function ArchivePage() {
 
   const handleRestoreChat = (archivedChat: ArchivedChat) => {
     // Navigate to main chat page and restore the conversation
-    router.push(`/agent/${archivedChat.characterId}?restore=${archivedChat.id}`)
+              const params = new URLSearchParams({
+            restore: archivedChat.id
+          })
+          router.push(`/agent/${archivedChat.characterId}?${params.toString()}`)
   }
 
   const handleDeleteChat = (chatId: string) => {

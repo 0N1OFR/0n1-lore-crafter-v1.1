@@ -29,7 +29,7 @@ export default function DebugStoragePage() {
     const souls = rawSouls ? JSON.parse(rawSouls) : []
     
     // Get other relevant storage items
-    const walletAddress = localStorage.getItem("oni-wallet-address")
+            const walletAddress = sessionStorage.getItem("oni-wallet-address")
     const lastSync = localStorage.getItem("oni-souls-last-sync")
     
     setLocalStorageData({

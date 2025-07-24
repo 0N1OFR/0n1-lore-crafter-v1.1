@@ -34,7 +34,10 @@ export function OwnedNfts({ onSelectNft, onShowTraits, selectedNftId, isLoading:
       try {
         console.log("Fetching NFTs for address:", address)
         // Call our API route directly with the connected address
-        const response = await fetch(`/api/opensea/owned?address=${address}`)
+        const params = new URLSearchParams({
+          address: address
+        })
+        const response = await fetch(`/api/opensea/owned?${params.toString()}`)
 
         if (!response.ok) {
           const errorData = await response.json()

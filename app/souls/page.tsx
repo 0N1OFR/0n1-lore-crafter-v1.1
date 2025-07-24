@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -17,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { getStoredSouls, deleteSoul, type StoredSoul, initializeHybridStorage, setCurrentWalletAddress } from "@/lib/storage-wrapper"
-import { Download, Trash2, Bot, ArrowLeft, Edit, Search, MessageCircle, User, AlertTriangle } from "lucide-react"
+import { Download, Trash2, Bot, ArrowLeft, Edit, Search, MessageCircle, User, AlertTriangle, Loader2, Clock } from "lucide-react"
 import { SafeNftImage } from "@/components/safe-nft-image"
 import { useRouter } from "next/navigation"
 import { SoulEditor } from "@/components/soul-editor"
@@ -25,10 +25,12 @@ import { Input } from "@/components/ui/input"
 import { getCharacterMemories } from "@/lib/memory"
 import { generatePreviewText, getPreviewTextColor } from "@/lib/preview-text-generator"
 import { useWallet } from "@/components/wallet/wallet-provider"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function SoulsPage() {
   const router = useRouter()
-  const { address, isConnected } = useWallet()
+  const { address, isConnected, isAuthenticated, authSession, sessionExpiresIn, connect } = useWallet()
+  const { toast } = useToast()
   const [souls, setSouls] = useState<StoredSoul[]>([])
   const [ownedNfts, setOwnedNfts] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -36,93 +38,172 @@ export default function SoulsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [deployedSouls, setDeployedSouls] = useState<Set<string>>(new Set())
   const [ownershipVerificationFailed, setOwnershipVerificationFailed] = useState(false)
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+  const [showSessionWarning, setShowSessionWarning] = useState(false)
+  const loadingTimeoutRef = useRef<NodeJS.Timeout>()
+  const sessionWarningShownRef = useRef(false)
 
+  // Session expiry monitoring
   useEffect(() => {
-    const loadSoulsAndNfts = async () => {
-      // Redirect if wallet not connected
-      if (!isConnected || !address) {
-        router.push("/?connect=true")
-        return
-      }
-
-      // Initialize hybrid storage with wallet address
-      setCurrentWalletAddress(address)
-      initializeHybridStorage(address).catch(console.error)
-
-      try {
-        // Get all stored souls FIRST (before API call)
-        const allStoredSouls = getStoredSouls()
-        console.log("All stored souls:", allStoredSouls)
-        
-        // Try to fetch owned NFTs from OpenSea
-        let ownedTokenIds = new Set<string>()
-        let apiError = false
-        
-        try {
-          const response = await fetch(`/api/opensea/owned?address=${address}`)
-          if (!response.ok) {
-            throw new Error('Failed to fetch owned NFTs')
-          }
-          
-          const ownedNftData = await response.json()
-          const characters = ownedNftData.characters || []
-          setOwnedNfts(characters)
-          
-          // Create set of owned token IDs - normalize them
-          ownedTokenIds = new Set(characters.map((char: any) => {
-            // Normalize by removing leading zeros
-            const normalized = char.tokenId.replace(/^0+/, "") || "0"
-            return normalized
-          }))
-          console.log("Owned token IDs from API (normalized):", Array.from(ownedTokenIds))
-        } catch (apiErr) {
-          console.error('OpenSea API error:', apiErr)
-          apiError = true
-          setOwnershipVerificationFailed(true)
-          // Don't throw - continue with all souls
-        }
-
-        // If API failed or no NFTs found, show ALL souls with a warning
-        let filteredSouls = allStoredSouls
-        
-        if (!apiError && ownedTokenIds.size > 0) {
-          // Only filter if we successfully got ownership data
-          filteredSouls = allStoredSouls.filter(soul => {
-            // Normalize the soul's pfpId for comparison
-            const normalizedSoulId = soul.data.pfpId.replace(/^0+/, "") || "0"
-            const hasNft = ownedTokenIds.has(normalizedSoulId)
-            console.log(`Soul ${soul.data.pfpId} (normalized: ${normalizedSoulId}) - Owner has NFT: ${hasNft}`)
-            return hasNft
-          })
-        } else if (apiError) {
-          // Show warning that ownership couldn't be verified
-          console.warn("⚠️ Could not verify NFT ownership - showing all souls")
-        }
-        
-        console.log("Filtered souls:", filteredSouls)
-        setSouls(filteredSouls)
-
-        // Check which souls have been deployed (have existing conversations)
-        const deployed = new Set<string>()
-        filteredSouls.forEach((soul) => {
-          const memories = getCharacterMemories(soul.data.pfpId)
-          if (memories && memories.messages.length > 0) {
-            deployed.add(soul.data.pfpId)
-          }
+    if (sessionExpiresIn !== null && sessionExpiresIn > 0) {
+      // Show warning when 5 minutes remain
+      if (sessionExpiresIn <= 300 && !sessionWarningShownRef.current) {
+        setShowSessionWarning(true)
+        sessionWarningShownRef.current = true
+        toast({
+          title: "Session Expiring Soon",
+          description: `Your session will expire in ${Math.floor(sessionExpiresIn / 60)} minutes. Click to refresh.`,
+          action: (
+            <Button
+              size="sm"
+              onClick={() => {
+                connect()
+                setShowSessionWarning(false)
+              }}
+            >
+              Refresh Session
+            </Button>
+          ),
+          duration: 10000,
         })
-        setDeployedSouls(deployed)
-
-      } catch (error) {
-        console.error('Error loading souls:', error)
-        // On any error, still try to show stored souls
-        const allStoredSouls = getStoredSouls()
-        setSouls(allStoredSouls)
-        setOwnedNfts([])
       }
+      
+      // Auto-prompt when session expires
+      if (sessionExpiresIn <= 0) {
+        toast({
+          title: "Session Expired",
+          description: "Please authenticate again to continue.",
+          variant: "destructive",
+        })
+        connect()
+      }
+    }
+  }, [sessionExpiresIn, connect, toast])
 
-      setIsLoading(false)
+  // Use useCallback to prevent recreating the function on every render
+  const loadSoulsAndNfts = useCallback(async () => {
+    // Clear any existing loading timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current)
     }
 
+    // Set a loading timeout - redirect after 10 seconds if still loading
+    loadingTimeoutRef.current = setTimeout(() => {
+      if (isLoading && (!isConnected || !address)) {
+        toast({
+          title: "Connection Timeout",
+          description: "Unable to connect to wallet. Redirecting to home page.",
+          variant: "destructive",
+        })
+        router.push("/?connect=true")
+      }
+    }, 10000)
+
+    // Redirect if wallet not connected
+    if (!isConnected || !address) {
+      router.push("/?connect=true")
+      return
+    }
+
+    // Require authentication for access
+    if (!isAuthenticated || !authSession) {
+      setIsLoading(false)
+      return
+    }
+
+    // Initialize hybrid storage with wallet address
+    setCurrentWalletAddress(address)
+    initializeHybridStorage(address).catch(console.error)
+
+    try {
+      // Get all stored souls FIRST (before API call)
+      const allStoredSouls = getStoredSouls()
+      console.log("All stored souls:", allStoredSouls)
+      
+      // Try to fetch owned NFTs from OpenSea
+      let ownedTokenIds = new Set<string>()
+      let apiError = false
+      
+      try {
+        // Use authenticated request with JWT token
+        const headers: HeadersInit = {
+          'Authorization': `Bearer ${authSession.token}`
+        }
+        
+        const response = await fetch(`/api/opensea/owned`, { headers })
+        if (!response.ok) {
+          throw new Error('Failed to fetch owned NFTs')
+        }
+        
+        const ownedNftData = await response.json()
+        const characters = ownedNftData.characters || []
+        setOwnedNfts(characters)
+        
+        // Create set of owned token IDs - normalize them
+        ownedTokenIds = new Set(characters.map((char: any) => {
+          // Normalize by removing leading zeros
+          const normalized = char.tokenId.replace(/^0+/, "") || "0"
+          return normalized
+        }))
+        console.log("Owned token IDs from API (normalized):", Array.from(ownedTokenIds))
+      } catch (apiErr) {
+        console.error('OpenSea API error:', apiErr)
+        apiError = true
+        setOwnershipVerificationFailed(true)
+      }
+
+      // SECURITY FIX: Fail closed - only show souls we can verify ownership for
+      let filteredSouls: StoredSoul[] = []
+      
+      if (apiError) {
+        // If API failed, deny access to all souls for security
+        console.error("⚠️ NFT ownership verification failed - access denied for security")
+        filteredSouls = []
+      } else if (ownedTokenIds.size === 0) {
+        // User doesn't own any NFTs
+        console.log("User doesn't own any NFTs")
+        filteredSouls = []
+      } else {
+        // Only show souls for NFTs the user owns
+        filteredSouls = allStoredSouls.filter(soul => {
+          // Normalize the soul's pfpId for comparison
+          const normalizedSoulId = soul.data.pfpId.replace(/^0+/, "") || "0"
+          const hasNft = ownedTokenIds.has(normalizedSoulId)
+          console.log(`Soul ${soul.data.pfpId} (normalized: ${normalizedSoulId}) - Owner has NFT: ${hasNft}`)
+          return hasNft
+        })
+      }
+      
+      console.log("Filtered souls:", filteredSouls)
+      setSouls(filteredSouls)
+
+      // Check which souls have been deployed (have existing conversations)
+      const deployed = new Set<string>()
+      filteredSouls.forEach((soul) => {
+        const memories = getCharacterMemories(soul.data.pfpId)
+        if (memories && memories.messages.length > 0) {
+          deployed.add(soul.data.pfpId)
+        }
+      })
+      setDeployedSouls(deployed)
+
+    } catch (error) {
+      console.error('Error loading souls:', error)
+      // On any error, still try to show stored souls
+      const allStoredSouls = getStoredSouls()
+      setSouls(allStoredSouls)
+      setOwnedNfts([])
+    }
+
+    setIsLoading(false)
+    
+    // Clear loading timeout when done
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current)
+    }
+  }, [isConnected, address, router, isAuthenticated, authSession, toast])
+
+  useEffect(() => {
     loadSoulsAndNfts()
     
     // Add event listener for storage changes
@@ -138,12 +219,94 @@ export default function SoulsPage() {
     return () => {
       window.removeEventListener("storage", loadSoulsAndNfts)
       window.removeEventListener("soul-storage-updated", handleCustomStorageEvent)
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current)
+      }
     }
-  }, [isConnected, address, router])
+  }, [loadSoulsAndNfts])
 
-  const handleDelete = (id: string) => {
-    deleteSoul(id)
-    setSouls((prev) => prev.filter((soul) => soul.id !== id))
+  const handleDelete = async (id: string) => {
+    // Prevent duplicate deletions
+    if (deletingIds.has(id)) return
+    
+    // Find the soul to delete
+    const soulToDelete = souls.find((soul: StoredSoul) => soul.id === id)
+    if (!soulToDelete) return
+    
+    // Double-check ownership by verifying the soul is in our current filtered list
+    const isOwned = souls.some((soul: StoredSoul) => soul.id === id)
+    if (!isOwned) {
+      console.error("Attempted to delete soul without ownership verification")
+      toast({
+        title: "Unauthorized",
+        description: "You cannot delete a soul you don't own.",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    // Mark as deleting
+    setDeletingIds(prev => new Set(prev).add(id))
+    
+    // Call server-side validation endpoint
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      }
+      
+      // Add auth token if available
+      if (authSession) {
+        headers['Authorization'] = `Bearer ${authSession.token}`
+      }
+      
+      const response = await fetch('/api/souls/delete', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          soulId: soulToDelete.id,
+          pfpId: soulToDelete.data.pfpId,
+          walletAddress: address // For backward compatibility
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        console.error("Server rejected deletion:", result)
+        toast({
+          title: "Deletion Failed",
+          description: result.message || result.error || "Failed to delete soul. You may not own this NFT.",
+          variant: "destructive",
+        })
+        return
+      }
+      
+      // Server validated ownership - now safe to delete from localStorage
+      deleteSoul(id)
+      setSouls((prev: StoredSoul[]) => prev.filter((soul: StoredSoul) => soul.id !== id))
+      
+      toast({
+        title: "Soul Deleted",
+        description: `Successfully deleted soul for NFT #${soulToDelete.data.pfpId}`,
+      })
+      
+      console.log("✅ Soul deletion completed:", result)
+      
+    } catch (error) {
+      console.error("Error during soul deletion:", error)
+      toast({
+        title: "Network Error",
+        description: "Failed to connect to server. Please check your internet connection.",
+        variant: "destructive",
+      })
+    } finally {
+      // Remove from deleting set
+      setDeletingIds(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
   }
 
   const handleExport = (soul: StoredSoul) => {
@@ -208,6 +371,50 @@ export default function SoulsPage() {
     )
   }
 
+  // Show authentication prompt if connected but not authenticated
+  if (isConnected && !isAuthenticated && !isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="border border-purple-500/30 bg-black/60 backdrop-blur-sm max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+              Authentication Required
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              To ensure the security of your souls, you need to authenticate your wallet by signing a message.
+            </p>
+            <div className="flex items-center space-x-2 text-sm text-purple-300">
+              <User className="h-4 w-4" />
+              <span>{address}</span>
+            </div>
+            {sessionExpiresIn !== null && sessionExpiresIn > 0 && (
+              <div className="text-sm text-muted-foreground">
+                Session expires in: {Math.floor(sessionExpiresIn / 60)} minutes
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="flex gap-2">
+            <Button
+              onClick={connect}
+              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            >
+              Authenticate Wallet
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/")}
+              className="border-purple-500/30 hover:bg-purple-900/20"
+            >
+              Go Back
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -223,9 +430,16 @@ export default function SoulsPage() {
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
-                Soul Collection
-              </h1>
+              <div>
+                <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+                  Soul Collection
+                </h1>
+                {isAuthenticated && sessionExpiresIn !== null && sessionExpiresIn > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Session expires in {Math.floor(sessionExpiresIn / 60)}m
+                  </p>
+                )}
+              </div>
             </div>
             <div className="flex gap-2">
               <Button
@@ -249,23 +463,72 @@ export default function SoulsPage() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto p-4">
-        {ownershipVerificationFailed && souls.length > 0 && (
+        {/* Session Warning Banner */}
+        {showSessionWarning && isAuthenticated && sessionExpiresIn !== null && sessionExpiresIn <= 300 && sessionExpiresIn > 0 && (
           <Card className="border border-yellow-500/30 bg-yellow-900/10 backdrop-blur-sm mb-6">
             <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Clock className="h-5 w-5 text-yellow-400" />
+                  <div>
+                    <p className="text-yellow-300 font-medium">Session Expiring Soon</p>
+                    <p className="text-yellow-200/70 text-sm">
+                      Your session will expire in {Math.floor(sessionExpiresIn / 60)} minutes. Please refresh to continue.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => {
+                    connect()
+                    setShowSessionWarning(false)
+                    sessionWarningShownRef.current = false
+                  }}
+                  size="sm"
+                  variant="outline"
+                  className="border-yellow-500/30 text-yellow-300 hover:bg-yellow-900/20"
+                >
+                  Refresh Session
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {ownershipVerificationFailed && (
+          <Card className="border border-red-500/30 bg-red-900/10 backdrop-blur-sm mb-6">
+            <CardContent className="py-4">
               <div className="flex items-center space-x-3">
-                <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                <AlertTriangle className="h-5 w-5 text-red-400" />
                 <div>
-                  <p className="text-yellow-300 font-medium">NFT Ownership Verification Failed</p>
-                  <p className="text-yellow-200/70 text-sm">
-                    Unable to verify NFT ownership. Showing all saved souls. Some souls may belong to NFTs you no longer own.
+                  <p className="text-red-300 font-medium">NFT Ownership Verification Required</p>
+                  <p className="text-red-200/70 text-sm">
+                    Unable to verify NFT ownership. For security reasons, access to souls is restricted until ownership can be verified.
                   </p>
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      onClick={() => window.location.reload()}
+                      size="sm"
+                      variant="outline"
+                      className="border-red-500/30 text-red-300 hover:bg-red-900/20"
+                    >
+                      Retry Verification
+                    </Button>
+                    <Button
+                      onClick={() => router.push("/?connect=true")}
+                      size="sm"
+                      variant="outline"
+                      className="border-red-500/30 text-red-300 hover:bg-red-900/20"
+                    >
+                      Reconnect Wallet
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {souls.length === 0 ? (
+        {souls.length === 0 && !ownershipVerificationFailed ? (
           <Card className="border border-purple-500/30 bg-black/60 backdrop-blur-sm">
             <CardContent className="flex flex-col items-center justify-center py-20 text-center">
               <div className="w-16 h-16 mb-6 rounded-full bg-purple-900/20 border border-purple-500/30 flex items-center justify-center">
@@ -304,7 +567,7 @@ export default function SoulsPage() {
               )}
             </CardContent>
           </Card>
-        ) : (
+        ) : souls.length > 0 ? (
           <>
             {/* Search bar */}
             <div className="mb-6 relative">
@@ -435,9 +698,19 @@ export default function SoulsPage() {
                               variant="outline"
                               size="sm"
                               className="border-red-500/30 hover:bg-red-900/20 text-red-200"
+                              disabled={deletingIds.has(soul.id)}
                             >
-                              <Trash2 className="h-3 w-3 mr-1" />
-                              Delete
+                              {deletingIds.has(soul.id) ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  Deleting
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  Delete
+                                </>
+                              )}
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -445,13 +718,22 @@ export default function SoulsPage() {
                               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                               <AlertDialogDescription>
                                 This will permanently delete this soul. This action cannot be undone.
+                                {!isAuthenticated && (
+                                  <span className="block mt-2 text-yellow-500">
+                                    ⚠️ Authentication required for deletion
+                                  </span>
+                                )}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => handleDelete(soul.id)}
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  handleDelete(soul.id)
+                                }}
                                 className="bg-red-600 hover:bg-red-700"
+                                disabled={deletingIds.has(soul.id)}
                               >
                                 Delete
                               </AlertDialogAction>
@@ -481,7 +763,7 @@ export default function SoulsPage() {
               })}
             </div>
           </>
-        )}
+        ) : null}
       </div>
     </div>
   )

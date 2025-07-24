@@ -9,7 +9,11 @@ const OPENSEA_API_KEY = process.env.OPENSEA_API_KEY
 async function fetchCollectionNfts(address: string, collection: CollectionKey): Promise<any[]> {
   const config = COLLECTIONS[collection]
   // Use contract address instead of collection slug for more reliable results
-  const url = `https://api.opensea.io/v2/chain/ethereum/account/${address}/nfts?asset_contract_address=${config.contractAddress}&limit=50`
+  const params = new URLSearchParams({
+    asset_contract_address: config.contractAddress,
+    limit: '50'
+  })
+  const url = `https://api.opensea.io/v2/chain/ethereum/account/${encodeURIComponent(address)}/nfts?${params.toString()}`
   
   console.log(`Fetching ${config.displayName} NFTs: ${url}`)
   

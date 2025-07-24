@@ -79,8 +79,8 @@ export function useSimpleAuth(): UseSimpleAuthReturn {
       console.log('🎉 Authentication successful!');
 
       // Store tokens
-      localStorage.setItem(TOKEN_STORAGE_KEY, authData.token);
-      localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, authData.refreshToken);
+      sessionStorage.setItem(TOKEN_STORAGE_KEY, authData.token);
+      sessionStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, authData.refreshToken);
 
       // Update state
       setState(prev => ({
@@ -109,7 +109,7 @@ export function useSimpleAuth(): UseSimpleAuthReturn {
   // Logout and clear session
   const logout = useCallback(async (): Promise<void> => {
     try {
-      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const token = sessionStorage.getItem(TOKEN_STORAGE_KEY);
       
       if (token) {
         // Notify server of logout
@@ -121,9 +121,9 @@ export function useSimpleAuth(): UseSimpleAuthReturn {
         });
       }
 
-      // Clear local storage
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+      // Clear session storage
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+      sessionStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
 
       // Reset state
       setState({
@@ -138,9 +138,9 @@ export function useSimpleAuth(): UseSimpleAuthReturn {
 
     } catch (error) {
       console.error('Logout error:', error);
-      // Still clear local state even if server request fails
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+      // Still clear session state even if server request fails
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+      sessionStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
       setState(prev => ({
         ...prev,
         isAuthenticated: false,

@@ -10,7 +10,11 @@ export async function verifyNftOwnership(
   tokenId: string
 ): Promise<boolean> {
   try {
-    const response = await fetch(`/api/verify-ownership?address=${walletAddress}&tokenId=${tokenId}`)
+    const params = new URLSearchParams({
+      address: walletAddress,
+      tokenId: tokenId
+    })
+    const response = await fetch(`/api/verify-ownership?${params.toString()}`)
     
     if (!response.ok) {
       console.error('Ownership verification API error:', response.status)

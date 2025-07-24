@@ -7,7 +7,11 @@ import type { OwnedNft } from "./types"
 export async function fetchOwnedNfts(address: string): Promise<OwnedNft[]> {
   try {
     // Call our API route to fetch owned NFTs
-    const response = await fetch(`/api/opensea/owned?address=${address}&contract=${ON1_CONTRACT_ADDRESS}`)
+    const params = new URLSearchParams({
+      address: address,
+      contract: ON1_CONTRACT_ADDRESS
+    })
+    const response = await fetch(`/api/opensea/owned?${params.toString()}`)
 
     if (!response.ok) {
       const errorData = await response.json()
