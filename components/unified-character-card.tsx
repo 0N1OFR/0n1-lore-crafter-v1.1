@@ -63,26 +63,32 @@ export function UnifiedCharacterCard({
 
       // Create a basic soul with the current image
       const soulData = {
-        data: {
-          pfpId: character.tokenId,
-          imageUrl: currentImageUrl,
-          soulName: character.displayName,
-          collection: isViewingFrame ? 'frame' : 'force',
-          traits: [],
-          archetype: '',
-          background: '',
-          hopesFears: { hopes: '', fears: '' },
-          personalityProfile: { description: '' },
-          motivations: { drives: '', goals: '', values: '' },
-          relationships: { friends: '', rivals: '', family: '' },
-          worldPosition: { societalRole: '', classStatus: '', perception: '' },
-          voice: { speechStyle: '', innerDialogue: '', uniquePhrases: '' },
-          symbolism: { colors: '', items: '', motifs: '' },
-          powersAbilities: { powers: [], description: '' }
-        }
+        pfpId: character.tokenId,
+        imageUrl: currentImageUrl,
+        soulName: character.displayName,
+        collection: isViewingFrame ? 'frame' : 'force',
+        traits: [],
+        archetype: '',
+        background: '',
+        hopesFears: { hopes: '', fears: '' },
+        personalityProfile: { description: '' },
+        motivations: { drives: '', goals: '', values: '' },
+        relationships: { friends: '', rivals: '', family: '' },
+        worldPosition: { societalRole: '', classStatus: '', perception: '' },
+        voice: { speechStyle: '', innerDialogue: '', uniquePhrases: '' },
+        symbolism: { colors: '', items: '', motifs: '' },
+        powersAbilities: { powers: [], description: '' }
       }
 
-      storeSoul(soulData.data)
+      // Generate personality settings from the basic soul data
+      const { generatePersonalityFromSoul } = await import('@/lib/personality-generator')
+      const personalitySettings = generatePersonalityFromSoul(soulData)
+      const dataWithPersonality = {
+        ...soulData,
+        personalitySettings
+      }
+
+      storeSoul(dataWithPersonality)
       
       toast({
         title: "Soul Created!",

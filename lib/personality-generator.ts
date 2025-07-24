@@ -1,10 +1,160 @@
 import type { CharacterData, PersonalitySettings } from "./types"
 
-function getRandomFromArray<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
+// Generate a deterministic number between 0-100 based on a seed string
+function deterministicValue(seed: string, index: number, min: number = 0, max: number = 100): number {
+  // Create a simple hash from the seed and index
+  let hash = 0
+  const str = `${seed}-${index}`
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  // Convert to positive number between min and max
+  const normalized = Math.abs(hash) % 101 // 0-100
+  return Math.floor((normalized / 100) * (max - min) + min)
 }
 
-// Default personality settings with reasonable middle values
+// Generate deterministic selection from array based on seed
+function deterministicChoice<T>(seed: string, index: number, array: T[]): T {
+  const idx = Math.abs(deterministicValue(seed, index, 0, array.length))
+  return array[idx % array.length]
+}
+
+// Create deterministic personality settings based on soul NFT ID
+export function createDeterministicPersonalitySettings(nftId: string): PersonalitySettings {
+  // Use NFT ID as seed for consistent generation
+  const seed = nftId || "default"
+  
+  return {
+    // Core Personality Traits (Big 5 + Extensions)
+    openness: deterministicValue(seed, 1, 30, 70),
+    conscientiousness: deterministicValue(seed, 2, 30, 70),
+    extraversion: deterministicValue(seed, 3, 30, 70),
+    agreeableness: deterministicValue(seed, 4, 30, 70),
+    neuroticism: deterministicValue(seed, 5, 30, 70),
+    sarcasmLevel: deterministicValue(seed, 6, 20, 60),
+    witHumor: deterministicValue(seed, 7, 30, 70),
+    empathy: deterministicValue(seed, 8, 30, 70),
+    confidence: deterministicValue(seed, 9, 30, 70),
+    impulsiveness: deterministicValue(seed, 10, 30, 70),
+    
+    // Communication Style Controls
+    formalityLevel: deterministicValue(seed, 11, 30, 70),
+    verbosity: deterministicValue(seed, 12, 30, 70),
+    directness: deterministicValue(seed, 13, 30, 70),
+    profanityUsage: deterministicValue(seed, 14, 0, 30),
+    technicalLanguage: deterministicValue(seed, 15, 20, 60),
+    metaphorUsage: deterministicValue(seed, 16, 30, 70),
+    storytellingTendency: deterministicValue(seed, 17, 30, 70),
+    
+    // Communication Style Dropdowns
+    primaryLanguageStyle: deterministicChoice(seed, 18, ['Street Slang', 'Academic', 'Corporate', 'Military', 'Artistic', 'Technical', 'Archaic']),
+    sentenceStructure: deterministicChoice(seed, 19, ['Short & Punchy', 'Flowing & Complex', 'Fragmented', 'Poetic', 'Stream of Consciousness']),
+    responseSpeedStyle: deterministicChoice(seed, 20, ['Immediate', 'Thoughtful Pauses', 'Delayed', 'Interrupt-Heavy']),
+    
+    // Psychological Depth
+    emotionalVolatility: deterministicValue(seed, 21, 30, 70),
+    trustLevel: deterministicValue(seed, 22, 30, 70),
+    optimism: deterministicValue(seed, 23, 30, 70),
+    stressResponse: deterministicValue(seed, 24, 30, 70),
+    attentionToDetail: deterministicValue(seed, 25, 30, 70),
+    riskTolerance: deterministicValue(seed, 26, 30, 70),
+    authorityRespect: deterministicValue(seed, 27, 30, 70),
+    
+    // Psychological Text Fields
+    coreFear: "The unknown",
+    greatestDesire: "Understanding",
+    primaryDefenseMechanism: "Intellectualization",
+    
+    // Background & Identity
+    educationLevel: deterministicChoice(seed, 28, ['Street-Smart', 'Trade School', 'College', 'Advanced Degree', 'Self-Taught Genius']),
+    socialClass: deterministicChoice(seed, 29, ['Upper Middle', 'Middle', 'Working', 'Street/Exile']),
+    geographicOrigin: deterministicChoice(seed, 30, ['Oni Empire', 'Sector 7', 'The Underbelly', 'Tech Districts', 'Wastelands']),
+    professionRole: deterministicChoice(seed, 31, ['Warrior', 'Diplomat', 'Hacker', 'Merchant', 'Scholar', 'Operative', 'Artist']),
+    ageRange: deterministicChoice(seed, 32, ['Young Adult', 'Prime', 'Experienced', 'Elder']),
+    
+    // Background Text Fields
+    culturalBackground: "Digital native culture",
+    religiousBeliefSystem: "Tech-Spiritualist",
+    formativeTrauma: "System betrayal",
+    greatestAchievement: "Survived the transition",
+    
+    // Relationship Dynamics
+    dominance: deterministicValue(seed, 33, 30, 70),
+    socialEnergy: deterministicValue(seed, 34, 30, 70),
+    boundarySetting: deterministicValue(seed, 35, 30, 70),
+    conflictStyle: deterministicValue(seed, 36, 30, 70),
+    intimacyComfort: deterministicValue(seed, 37, 30, 70),
+    loyalty: deterministicValue(seed, 38, 30, 70),
+    mentorshipInclination: deterministicValue(seed, 39, 30, 70),
+    
+    // Relationship Dropdowns
+    defaultRelationshipStance: deterministicChoice(seed, 40, ['Friendly', 'Neutral', 'Suspicious', 'Protective']),
+    authorityResponse: deterministicChoice(seed, 41, ['Defer', 'Challenge', 'Ignore', 'Respect']),
+    
+    // Specialized Traits
+    curiosityLevel: deterministicValue(seed, 42, 30, 70),
+    philosophicalTendency: deterministicValue(seed, 43, 30, 70),
+    creativity: deterministicValue(seed, 44, 30, 70),
+    analyticalNature: deterministicValue(seed, 45, 30, 70),
+    memoryForDetails: deterministicValue(seed, 46, 30, 70),
+    physicalAwareness: deterministicValue(seed, 47, 30, 70),
+    
+    // Quirks & Personality Flavoring
+    signaturePhrase: "Interesting...",
+    speakingTic: "Adjusts posture when focused",
+    uniqueReferencePool: "Digital analogies",
+    physicalTell: "Looks up when thinking",
+    conversationHabit: "Asks clarifying questions",
+    
+    // Quirks Checkboxes
+    usesSpecificEmoji: false,
+    speaksInQuestions: false,
+    neverUsesContractions: false,
+    frequentlyInterrupts: false,
+    alwaysGivesAdvice: false,
+    tellsStoriesInsteadOfAnswers: false,
+    usesTechnicalMetaphors: false,
+    avoidsNamingPeople: false,
+    
+    // Contextual Modifiers
+    stressAdaptability: deterministicValue(seed, 48, 30, 70),
+    environmentalSensitivity: deterministicValue(seed, 49, 30, 70),
+    moodStability: deterministicValue(seed, 50, 30, 70),
+    audienceAwareness: deterministicValue(seed, 51, 30, 70),
+    
+    // Contextual Dropdowns
+    primaryMotivation: deterministicChoice(seed, 52, ['Survival', 'Power', 'Knowledge', 'Connection', 'Recognition', 'Justice']),
+    currentLifePhase: deterministicChoice(seed, 53, ['Searching', 'Building', 'Protecting', 'Transforming']),
+    energyLevel: deterministicChoice(seed, 54, ['Moderate', 'High', 'Low']),
+    
+    // Advanced Controls
+    responseComplexity: deterministicValue(seed, 55, 30, 70),
+    emotionalExpression: deterministicValue(seed, 56, 30, 70),
+    memoryReference: deterministicValue(seed, 57, 30, 70),
+    futureOrientation: deterministicValue(seed, 58, 30, 70),
+    
+    // Advanced Text Fields
+    backstorySummary: "A soul shaped by digital transformation",
+    currentGoal: "Finding their place in the new world",
+    secretHiddenAspect: "Deep uncertainty about their identity",
+    characterArcDirection: "Growing into their true potential",
+    
+    // Output Controls
+    responseLengthPreference: deterministicValue(seed, 59, 30, 70),
+    emotionIntensity: deterministicValue(seed, 60, 30, 70),
+    adviceGivingTendency: deterministicValue(seed, 61, 30, 70),
+    questionAskingFrequency: deterministicValue(seed, 62, 30, 70),
+  }
+}
+
+// Helper function to get random element from array
+function getRandomFromArray<T>(array: T[]): T {
+  return array[Math.floor(Math.random() * array.length)]
+}
+
+// Default personality settings with random values - only used for "Randomize" button
 export function createDefaultPersonalitySettings(): PersonalitySettings {
   return {
     // Core Personality Traits (Big 5 + Extensions)
@@ -131,7 +281,8 @@ export function createDefaultPersonalitySettings(): PersonalitySettings {
 
 // Generate personality settings based on soul questionnaire data
 export function generatePersonalityFromSoul(characterData: CharacterData): PersonalitySettings {
-  const settings = createDefaultPersonalitySettings()
+  // Start with deterministic base values based on NFT ID
+  const settings = createDeterministicPersonalitySettings(characterData.pfpId)
   
   // Analyze archetype and adjust traits accordingly
   analyzeArchetype(characterData.archetype, settings)

@@ -21,7 +21,22 @@ interface PersonalityDashboardProps {
 
 export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardProps) {
   const [personalitySettings, setPersonalitySettings] = useState<PersonalitySettings & { globalIntensity?: number }>(() => {
-    return soul.data.personalitySettings || generatePersonalityFromSoul(soul.data)
+    // If soul already has personality settings, use those
+    if (soul.data.personalitySettings) {
+      return soul.data.personalitySettings
+    }
+    // Otherwise generate them from soul data
+    const generatedSettings = generatePersonalityFromSoul(soul.data)
+    // Save the generated settings immediately
+    const updatedSoul = {
+      ...soul,
+      data: {
+        ...soul.data,
+        personalitySettings: generatedSettings
+      }
+    }
+    onUpdate(updatedSoul)
+    return generatedSettings
   })
   
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -54,7 +69,9 @@ export function PersonalityDashboard({ soul, onUpdate }: PersonalityDashboardPro
   }
 
   const handleReset = () => {
-    const defaultSettings = generatePersonalityFromSoul(soul.data)
+    // If soul has saved personality settings, use those
+    // Otherwise generate from soul data (deterministic based on NFT ID)
+    const defaultSettings = soul.data.personalitySettings || generatePersonalityFromSoul(soul.data)
     setPersonalitySettings(defaultSettings)
     setHasUnsavedChanges(true)
   }

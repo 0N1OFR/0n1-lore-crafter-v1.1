@@ -74,11 +74,19 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
         soulName: soulName
       }
       
+      // Generate personality settings from soul data if not already present
+      if (!dataToSave.personalitySettings) {
+        const { generatePersonalityFromSoul } = require('@/lib/personality-generator')
+        dataToSave.personalitySettings = generatePersonalityFromSoul(dataToSave)
+        console.log("🎭 Generated personality settings from soul data")
+      }
+      
       console.log("🔵 SAVING SOUL - Debug Info:")
       console.log("- NFT ID (pfpId):", dataToSave.pfpId)
       console.log("- Soul Name:", dataToSave.soulName)
       console.log("- Has Archetype:", !!dataToSave.archetype)
       console.log("- Has Background:", !!dataToSave.background)
+      console.log("- Has Personality Settings:", !!dataToSave.personalitySettings)
       console.log("- Full data structure:", dataToSave)
       
       // Check existing souls before saving
@@ -136,11 +144,19 @@ export function FinalLore({ characterData, updateCharacterData, prevStep }: Fina
         soulName: soulName
       }
       
+      // Generate personality settings from soul data if not already present
+      if (!dataToSave.personalitySettings) {
+        const { generatePersonalityFromSoul } = require('@/lib/personality-generator')
+        dataToSave.personalitySettings = generatePersonalityFromSoul(dataToSave)
+        console.log("🎭 Generated personality settings from soul data")
+      }
+      
       console.log("🚀 DEPLOY AGENT - Saving soul data:", {
         pfpId: dataToSave.pfpId,
         soulName: dataToSave.soulName,
         hasArchetype: !!dataToSave.archetype,
-        hasBackground: !!dataToSave.background
+        hasBackground: !!dataToSave.background,
+        hasPersonalitySettings: !!dataToSave.personalitySettings
       })
       
       const soulId = storeSoul(dataToSave)
