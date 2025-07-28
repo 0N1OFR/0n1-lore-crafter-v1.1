@@ -93,16 +93,49 @@ export default function DebugSupabasePage() {
     setTestResult("🔄 Starting manual migration...")
     
     try {
-      // Import the manual sync function
-      const { manualSync } = await import('@/lib/storage-hybrid')
-      
-      const result = await manualSync()
-      
-      if (result.success) {
-        setTestResult(`✅ Migration successful! Synced ${result.synced} souls to Supabase.`)
-      } else {
-        setTestResult(`❌ Migration failed: ${result.errors.join(', ')}`)
+      // Get localStorage souls first
+      const souls = localStorage.getItem('oni-souls')
+      if (!souls) {
+        setTestResult("❌ No souls found in localStorage to migrate")
+        setLoading(false)
+        return
       }
+      
+      const parsed = JSON.parse(souls)
+      setTestResult(`🔄 Found ${parsed.length} souls. Starting migration...`)
+      
+      // Try individual soul migrations via API
+      let successCount = 0
+      let errors: string[] = []
+      
+      for (const soul of parsed) {
+        try {
+          const response = await fetch('/api/migrate-to-supabase', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              characterData: soul.data,
+              walletAddress: soul.wallet_address || '0x0000000000000000000000000000000000000000' // fallback
+            })
+          })
+          
+          const result = await response.json()
+          if (result.success) {
+            successCount++
+          } else {
+            errors.push(`Soul ${soul.id}: ${result.error}`)
+          }
+        } catch (error: any) {
+          errors.push(`Soul ${soul.id}: ${error.message}`)
+        }
+      }
+      
+      if (successCount > 0) {
+        setTestResult(`✅ Migration completed! ${successCount}/${parsed.length} souls migrated successfully.${errors.length > 0 ? `\n\nErrors: ${errors.join('\n')}` : ''}`)
+      } else {
+        setTestResult(`❌ Migration failed for all souls:\n${errors.join('\n')}`)
+      }
+      
     } catch (error: any) {
       setTestResult(`❌ Migration error: ${error.message}`)
     }
