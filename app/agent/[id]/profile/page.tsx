@@ -34,9 +34,22 @@ export default function ProfilePage() {
 
   const handleDelete = () => {
     if (!soul) return
-    if (confirm(`Are you sure you want to delete ${soul.data.soulName}? This action cannot be undone.`)) {
-      deleteSoul(soul.id)
-      router.push("/souls")
+    console.log("Delete button clicked for soul:", soul.id)
+    
+    try {
+      const result = deleteSoul(soul.id)
+      console.log("Delete result:", result)
+      
+      if (result) {
+        console.log("Soul deleted successfully, redirecting...")
+        router.push("/souls")
+      } else {
+        console.error("Failed to delete soul")
+        alert("Failed to delete soul. Please try again.")
+      }
+    } catch (error) {
+      console.error("Error deleting soul:", error)
+      alert("Error deleting soul. Please check console for details.")
     }
   }
 
