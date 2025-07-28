@@ -4,6 +4,7 @@ import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
+import { setCurrentWalletAddress } from "@/lib/storage-wrapper"
 
 // Extend Window interface to include ethereum
 declare global {
@@ -94,6 +95,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           setAddress(session.walletAddress)
           setIsConnected(true)
           setIsAuthenticated(true)
+          setCurrentWalletAddress(session.walletAddress)
           console.log("Restored authenticated session for:", session.walletAddress)
         } else {
           // Session expired, clear it
@@ -193,6 +195,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       
       setAuthSession(session)
       setIsAuthenticated(true)
+      setCurrentWalletAddress(walletAddress.toLowerCase())
       sessionStorage.setItem("authSession", JSON.stringify(session))
       
       toast({
@@ -322,6 +325,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setIsConnected(false)
     setIsAuthenticated(false)
     setAuthSession(null)
+    setCurrentWalletAddress(null)
     sessionStorage.removeItem("walletAddress")
     sessionStorage.removeItem("authSession")
     console.log("Wallet disconnected, auth session cleared")
