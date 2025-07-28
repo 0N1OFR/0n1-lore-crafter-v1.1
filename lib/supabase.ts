@@ -4,6 +4,12 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 
+// Debug logging
+console.log('🔍 Supabase Debug Info:')
+console.log('- URL:', supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'NOT FOUND')
+console.log('- Anon Key:', supabaseAnonKey ? 'Found' : 'NOT FOUND')
+console.log('- Running on:', typeof window === 'undefined' ? 'Server' : 'Client')
+
 // Server-side only environment variables
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -21,8 +27,12 @@ const isValidUrl = (url: string | undefined): boolean => {
 // Validate required environment variables
 const hasValidSupabaseConfig = isValidUrl(supabaseUrl) && supabaseAnonKey && supabaseAnonKey !== 'placeholder'
 
+console.log('- Valid config:', hasValidSupabaseConfig)
+
 if (!hasValidSupabaseConfig) {
   console.warn('Supabase environment variables not found or are placeholders. Supabase functionality will be disabled.')
+  console.warn('- URL valid:', isValidUrl(supabaseUrl))
+  console.warn('- Key valid:', supabaseAnonKey && supabaseAnonKey !== 'placeholder')
 }
 
 // Regular client for client-side operations (safe to use in browser)
