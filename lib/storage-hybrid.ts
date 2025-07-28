@@ -63,12 +63,19 @@ async function syncSoulToSupabase(soul: StoredSoul): Promise<boolean> {
   if (!isSupabaseAvailable() || !supabase) return false
 
   try {
+    // Get wallet address - require currentWalletAddress to be set
+    if (!currentWalletAddress) {
+      console.error('Cannot sync soul: wallet address not set')
+      return false
+    }
+    const walletAddress = currentWalletAddress
+    
     const { error } = await supabase
       .from('character_souls')
       .upsert({
         id: soul.id,
         nft_id: soul.data.pfpId,
-        wallet_address: currentWalletAddress!,
+        wallet_address: walletAddress,
         character_name: soul.data.soulName,
         archetype: soul.data.archetype,
         background: soul.data.background,

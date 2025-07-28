@@ -108,27 +108,45 @@ export default function DebugSupabasePage() {
       let successCount = 0
       let errors: string[] = []
       
-      for (const soul of parsed) {
-        try {
-          const response = await fetch('/api/migrate-to-supabase', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              characterData: soul.data,
-              walletAddress: soul.wallet_address || '0x0000000000000000000000000000000000000000' // fallback
-            })
-          })
-          
-          const result = await response.json()
-          if (result.success) {
-            successCount++
-          } else {
-            errors.push(`Soul ${soul.id}: ${result.error}`)
-          }
-        } catch (error: any) {
-          errors.push(`Soul ${soul.id}: ${error.message}`)
-        }
-      }
+             // Try to get wallet address from auth session first
+       let walletAddress = null
+       try {
+         const authResponse = await fetch('/api/auth/status')
+         if (authResponse.ok) {
+           const authData = await authResponse.json()
+           walletAddress = authData.walletAddress
+         }
+       } catch (error) {
+         console.log('No auth session found, using fallback address')
+       }
+       
+       if (!walletAddress) {
+         walletAddress = '0x0000000000000000000000000000000000000000' // fallback
+       }
+       
+       setTestResult(`🔄 Found ${parsed.length} souls. Using wallet: ${walletAddress}. Starting migration...`)
+       
+       for (const soul of parsed) {
+         try {
+           const response = await fetch('/api/migrate-to-supabase', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({
+               characterData: soul.data,
+               walletAddress: walletAddress
+             })
+           })
+           
+           const result = await response.json()
+           if (result.success) {
+             successCount++
+           } else {
+             errors.push(`Soul ${soul.id}: ${result.error}`)
+           }
+         } catch (error: any) {
+           errors.push(`Soul ${soul.id}: ${error.message}`)
+         }
+       }
       
       if (successCount > 0) {
         setTestResult(`✅ Migration completed! ${successCount}/${parsed.length} souls migrated successfully.${errors.length > 0 ? `\n\nErrors: ${errors.join('\n')}` : ''}`)
