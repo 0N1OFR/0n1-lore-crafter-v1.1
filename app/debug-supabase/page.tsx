@@ -128,6 +128,8 @@ export default function DebugSupabasePage() {
        
        for (const soul of parsed) {
          try {
+           setTestResult(prev => prev + `\n🔄 Migrating soul ${soul.id} (NFT #${soul.data.pfpId})...`)
+           
            const response = await fetch('/api/migrate-to-supabase', {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
@@ -138,13 +140,21 @@ export default function DebugSupabasePage() {
            })
            
            const result = await response.json()
+           
+           setTestResult(prev => prev + `\n📊 Response status: ${response.status}, Success: ${result.success}`)
+           
            if (result.success) {
              successCount++
+             setTestResult(prev => prev + `\n✅ Soul ${soul.id} migrated successfully`)
            } else {
-             errors.push(`Soul ${soul.id}: ${result.error}`)
+             const errorMsg = `Soul ${soul.id}: ${result.error || result.message || 'Unknown error'}`
+             errors.push(errorMsg)
+             setTestResult(prev => prev + `\n❌ ${errorMsg}`)
            }
          } catch (error: any) {
-           errors.push(`Soul ${soul.id}: ${error.message}`)
+           const errorMsg = `Soul ${soul.id}: Network/Parse error - ${error.message}`
+           errors.push(errorMsg)
+           setTestResult(prev => prev + `\n❌ ${errorMsg}`)
          }
        }
       
@@ -207,6 +217,28 @@ export default function DebugSupabasePage() {
                   variant="secondary"
                 >
                   Check localStorage
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    setLoading(true)
+                    setTestResult("🔍 Checking authentication status...")
+                    try {
+                      const response = await fetch('/api/auth/status')
+                      const data = await response.json()
+                      if (response.ok && data.isAuthenticated) {
+                        setTestResult(`✅ Authenticated as: ${data.walletAddress}\n📅 Expires: ${new Date(data.expiresAt).toLocaleString()}`)
+                      } else {
+                        setTestResult(`❌ Not authenticated: ${data.error || 'No active session'}`)
+                      }
+                    } catch (error: any) {
+                      setTestResult(`❌ Auth check failed: ${error.message}`)
+                    }
+                    setLoading(false)
+                  }}
+                  disabled={loading}
+                  variant="outline"
+                >
+                  {loading ? "Checking..." : "Check Auth Status"}
                 </Button>
                 <Button 
                   onClick={manualMigrate}
