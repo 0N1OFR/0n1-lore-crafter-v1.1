@@ -88,6 +88,28 @@ export default function DebugSupabasePage() {
     }
   }
 
+  const manualMigrate = async () => {
+    setLoading(true)
+    setTestResult("🔄 Starting manual migration...")
+    
+    try {
+      // Import the manual sync function
+      const { manualSync } = await import('@/lib/storage-hybrid')
+      
+      const result = await manualSync()
+      
+      if (result.success) {
+        setTestResult(`✅ Migration successful! Synced ${result.synced} souls to Supabase.`)
+      } else {
+        setTestResult(`❌ Migration failed: ${result.errors.join(', ')}`)
+      }
+    } catch (error: any) {
+      setTestResult(`❌ Migration error: ${error.message}`)
+    }
+    
+    setLoading(false)
+  }
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto">
@@ -134,6 +156,13 @@ export default function DebugSupabasePage() {
                   variant="secondary"
                 >
                   Check localStorage
+                </Button>
+                <Button 
+                  onClick={manualMigrate}
+                  disabled={loading}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {loading ? "Migrating..." : "Migrate to Supabase"}
                 </Button>
               </div>
               
